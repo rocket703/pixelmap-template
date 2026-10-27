@@ -439,7 +439,9 @@ export function initMap() {
     const near = Math.round(f);
     if (Math.abs(f - near) <= cfg.scroll.hold / 2) {
       // Magnet (Handy): in der Halte-Zone sanft die paar Pixel nachrücken, bis das Haus ganz zu sehen ist
-      if (cfg.scroll.magnet && mobile.matches && !snapViews() && Math.abs(scrollY - scrollYFor(near)) > 6) goTo(near);
+      // Desktop (mit Halt) und Handy ohne feste Views: in der Halte-Zone sanft genau auf die Station
+      const magnet = cfg.scroll.magnet && (mobile.matches ? !snapViews() : cfg.scroll.pause > 0);
+      if (magnet && Math.abs(scrollY - scrollYFor(near)) > 6) goTo(near);
       return;
     }
     if (cfg.scroll.snap) goTo(clamp(lastDir > 0 ? Math.ceil(f) : lastDir < 0 ? Math.floor(f) : near, 0, segs));
@@ -490,17 +492,31 @@ export function initMap() {
   reduced.addEventListener('change', wake);
 
   /* Desktop: kurzer Halt an jeder Station. Überquert ein Mausrad-/Trackpad-Schritt eine Station,
-     bleibt die Seite dort für SCROLL.pause ms stehen; danach geht es normal weiter. */
+     bleibt die Seite dort für SCROLL.pause ms stehen. Danach wird der ausklingende Restschwung
+     derselben Bewegung ignoriert (Trackpad) – erst neues Scrollen geht weiter. */
   let holdUntil = 0;
   let heldAt = -1;
+  let swallowTail = false;
+  let lastAbs = 0;
+  let lastWheel = 0;
   addEventListener(
     'wheel',
     (e) => {
       if (mobile.matches || !cfg.scroll.pause || e.ctrlKey) return;
       const now = performance.now();
-      if (now < holdUntil) return e.preventDefault();
-      if (heldAt >= 0 && Math.abs(scrollY - scrollYFor(heldAt)) > 40) heldAt = -1;
       const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * innerHeight : e.deltaY;
+      const abs = Math.abs(dy);
+      // Schwung klingt aus (kleiner werdende oder gleich kleine Trackpad-Schritte) – keine neue Bewegung.
+      // Mausrad-Rasten sind groß und gleich groß und zählen deshalb als neues Scrollen.
+      const fading = now - lastWheel < 120 && (abs < lastAbs || (abs <= lastAbs && abs < 40));
+      lastAbs = abs;
+      lastWheel = now;
+      if (now < holdUntil) return e.preventDefault();
+      if (swallowTail) {
+        if (fading) return e.preventDefault();
+        swallowTail = false;
+      }
+      if (heldAt >= 0 && Math.abs(scrollY - scrollYFor(heldAt)) > 40) heldAt = -1;
       const from = scrollY;
       const to = from + dy;
       for (let i = 0; i <= segs; i++) {
@@ -510,6 +526,7 @@ export function initMap() {
         scrollTo({ top: y, behavior: reduced.matches ? 'instant' : 'smooth' });
         heldAt = i;
         holdUntil = now + cfg.scroll.pause;
+        swallowTail = true;
         return;
       }
     },

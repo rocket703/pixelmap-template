@@ -82,8 +82,8 @@ export const SCROLL = {
    */
   snap: false,
   /**
-   * Magnet (nur Handy): Hört man in der Halte-Zone einer Station auf zu scrollen, rückt die Seite
-   * sanft die letzten Pixel nach, damit Schild, Gebäude und Figur ganz zu sehen sind.
+   * Magnet: Hört man in der Halte-Zone einer Station auf zu scrollen, rückt die Seite sanft
+   * genau auf die Station (Desktop mit `pause`; Handy nur, wenn `views` aus ist).
    */
   magnet: true,
   /**
