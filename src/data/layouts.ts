@@ -66,30 +66,40 @@ const desktop: Layout = {
   layers: MAP.layers,
 };
 
-/** Handy-Map: Breite, Mitte der Gebäudespalte, Abstand der Seitenwege vom Rand, Platz unter der Tür */
-const M = { width: 260, center: 130, side: 12, firstY: 150, air: 64, bottom: 200 };
-/** Zu welcher Seite der Weg nach jeder Station ausschwenkt (1 = rechts, 0 = links) – bewusst unregelmäßig */
-const SIDES = [1, 0, 0, 1, 0, 1, 1, 0];
+/**
+ * Handy-Map: Gebäude mittig untereinander. Zwischen zwei Gebäuden läuft der Weg im Zickzack
+ * hin und her (zur einen Seite, quer, zur anderen Seite, zurück zur Mitte) – immer im Bild.
+ * left/right: x der Seitenwege (bleiben auch auf schmalen Handys sichtbar), zig: Tiefe des Zickzacks.
+ */
+const M = { width: 260, center: 130, left: 58, right: 202, firstY: 150, zig: 46, signRoom: 18, bottom: 200 };
 
 function mobileLayout(): Layout {
   const path: Point[] = [];
   const waypoints: number[] = [];
-  const parkW = 160;
-  let park = parkAt(M.center - parkW / 2, 0, parkW);
+  const parkW = 146;
+  let park = parkAt(40, 0, parkW);
   let y = M.firstY;
+  // Durchgehende Schlange: Der Weg verlässt jede Station zur Seite gegenüber der Ankunft
+  let arrivedFrom = M.left; // der Weg kommt am Start vom linken Kartenrand
   STOPS.forEach((stop, i) => {
     if (i > 0) {
       const prevY = y;
-      // Platz für den Seitenweg, das Schild und etwas Luft über dem nächsten Gebäude
-      let gap = BUILDINGS[stop.building].h + BUILDING_GAP + M.air;
-      // Hundeplatz zwischen Start und erster Station
+      const h = BUILDINGS[stop.building].h;
+      const first = arrivedFrom === M.left ? M.right : M.left;
+      const other = first === M.right ? M.left : M.right;
       if (i === 1) {
-        park = parkAt(M.center - parkW / 2, prevY + 26, parkW);
-        gap += PARK_SHAPE.h + 30;
+        // Zwischen Start und erster Station liegt links der Hundeplatz: nur ein Bogen (nach rechts)
+        park = parkAt(40, prevY + 24, parkW);
+        y = park.y + park.h + M.signRoom + 12 + BUILDING_GAP + h;
+        path.push({ x: first, y: prevY }, { x: first, y });
+        arrivedFrom = first;
+      } else {
+        // Zickzack: Seite → quer → andere Seite → zurück zur Mitte (Gebäude steht darüber)
+        const zigY = prevY + M.zig;
+        y = zigY + 10 + M.signRoom + BUILDING_GAP + h;
+        path.push({ x: first, y: prevY }, { x: first, y: zigY }, { x: other, y: zigY }, { x: other, y });
+        arrivedFrom = other;
       }
-      y = prevY + gap;
-      const x = SIDES[(i - 1) % SIDES.length] ? M.width - M.side : M.side;
-      path.push({ x, y: prevY }, { x, y });
     }
     waypoints.push(path.length);
     path.push({ x: M.center, y });

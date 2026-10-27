@@ -28,7 +28,7 @@ interface MapConfig {
   mobileQuery: string;
   layouts: { desktop: LayoutConfig; mobile: LayoutConfig };
   hero: { speed: number; sprintFrom: number; sprintMax: number; stride: number; anchorX: number; anchorY: number };
-  scroll: { hold: number; snap: boolean; magnet: boolean; focus: number; focusMobile: number };
+  scroll: { hold: number; snap: boolean; magnet: boolean; views: boolean; pause: number; focus: number; focusMobile: number };
   /** halfW/h: halbe Breite und Höhe des Gebäudes in Map-Pixeln (Inhaltsfenster steht daneben) */
   stations: { id: string; panel: 'left' | 'right'; face: Facing; halfW: number; h: number }[];
   /** Abstand Unterkante Gebäude → Wegmitte, halbe Wegbreite */
@@ -134,6 +134,86 @@ export function initMap() {
   /** Station, an der Figur UND Ziel gerade stehen (sonst -1) */
   const stationAt = (s: number) => stationS.findIndex((st) => Math.abs(st - s) < 0.5);
 
+  /* ------------------------------------- Handy: feste Views (Scroll-Snap) */
+
+  const snapBox = document.createElement('div');
+  snapBox.className = 'snap-points';
+  snapBox.setAttribute('aria-hidden', 'true');
+  document.body.append(snapBox);
+  const snapViews = () => cfg.scroll.views && mobile.matches;
+
+  /** Je Station ein Einrastpunkt an ihrer Scroll-Position, dazu einer ganz unten (Footer) */
+  function updateSnaps() {
+    const on = snapViews();
+    root.classList.toggle('snap-views', on);
+    if (!on) return snapBox.replaceChildren();
+    const ys = [...stationY.map((_, i) => scrollYFor(i)), maxScroll()];
+    snapBox.replaceChildren(
+      ...ys.map((y) => {
+        const el = document.createElement('div');
+        el.className = 'snap-point';
+        el.style.top = `${Math.round(y)}px`;
+        return el;
+      }),
+    );
+  }
+
+  /* Wisch-Blättern: ein Wisch = genau eine Station weiter/zurück, egal wie viel Schwung.
+     Natives Scrollen ist dafür abgeschaltet – außer in einer Infoleiste, deren Text länger ist. */
+  const pages = () => [...stationY.map((_, i) => scrollYFor(i)), maxScroll()];
+  let pageTarget = -1; // Ziel einer laufenden Blätter-Animation (für schnelle Folgewische)
+  let touchY0 = 0;
+  let touchDir = 0;
+  let nativeTouch = false;
+
+  function currentPage() {
+    const ys = pages();
+    if (pageTarget >= 0) return pageTarget;
+    let best = 0;
+    ys.forEach((y, i) => Math.abs(y - scrollY) < Math.abs(ys[best] - scrollY) && (best = i));
+    return best;
+  }
+
+  addEventListener(
+    'touchstart',
+    (e) => {
+      if (!snapViews() || e.touches.length > 1) return;
+      touchY0 = e.touches[0].clientY;
+      touchDir = 0;
+      nativeTouch = false;
+    },
+    { passive: true },
+  );
+  addEventListener(
+    'touchmove',
+    (e) => {
+      if (!snapViews() || e.touches.length > 1) return;
+      const dy = touchY0 - e.touches[0].clientY;
+      if (!touchDir && Math.abs(dy) > 4) {
+        touchDir = Math.sign(dy);
+        // Längerer Text in der Infoleiste: dort normal scrollen, solange es in diese Richtung geht
+        const sheet = (e.target as Element).closest<HTMLElement>('.station');
+        const room = sheet ? (touchDir > 0 ? sheet.scrollHeight - sheet.clientHeight - sheet.scrollTop : sheet.scrollTop) : 0;
+        nativeTouch = room > 1;
+      }
+      if (!nativeTouch && e.cancelable) e.preventDefault();
+    },
+    { passive: false },
+  );
+  addEventListener(
+    'touchend',
+    (e) => {
+      if (!snapViews() || nativeTouch || !touchDir) return;
+      const dy = touchY0 - e.changedTouches[0].clientY;
+      if (Math.abs(dy) < 24) return; // nur ein Antippen
+      const ys = pages();
+      const next = Math.min(Math.max(currentPage() + Math.sign(dy), 0), ys.length - 1);
+      pageTarget = next;
+      scrollTo({ top: ys[next], behavior: reduced.matches ? 'instant' : 'smooth' });
+    },
+    { passive: true },
+  );
+
   /* ------------------------------------------------------- Layout */
 
   function layout() {
@@ -148,6 +228,7 @@ export function initMap() {
     scale = Math.max(wish, Math.ceil(vw / width));
     root.style.setProperty('--s', String(scale));
     snapCamera = true;
+    updateSnaps();
   }
 
   /* ---------------------------------------------- Hauptschleife */
@@ -332,12 +413,13 @@ export function initMap() {
   let settleTimer = 0;
 
   function settle() {
+    pageTarget = -1;
     if (touching) return;
     const f = progress();
     const near = Math.round(f);
     if (Math.abs(f - near) <= cfg.scroll.hold / 2) {
       // Magnet (Handy): in der Halte-Zone sanft die paar Pixel nachrücken, bis das Haus ganz zu sehen ist
-      if (cfg.scroll.magnet && mobile.matches && Math.abs(scrollY - scrollYFor(near)) > 6) goTo(near);
+      if (cfg.scroll.magnet && mobile.matches && !snapViews() && Math.abs(scrollY - scrollYFor(near)) > 6) goTo(near);
       return;
     }
     if (cfg.scroll.snap) goTo(clamp(lastDir > 0 ? Math.ceil(f) : lastDir < 0 ? Math.floor(f) : near, 0, segs));
@@ -375,6 +457,7 @@ export function initMap() {
     layout();
     // Handy-Adressleiste ändert nur die Höhe: einfach weiterlaufen
     if (scale === before.scale && vw === before.vw && L === before.L) {
+      // Höhe geändert (Adressleiste): Einrastpunkte neu, sonst einfach weiterlaufen
       targetS = targetFromScroll();
       wake();
       return;
@@ -385,6 +468,33 @@ export function initMap() {
     resizeTimer = window.setTimeout(() => placeAt(keep), 150);
   });
   reduced.addEventListener('change', wake);
+
+  /* Desktop: kurzer Halt an jeder Station. Überquert ein Mausrad-/Trackpad-Schritt eine Station,
+     bleibt die Seite dort für SCROLL.pause ms stehen; danach geht es normal weiter. */
+  let holdUntil = 0;
+  let heldAt = -1;
+  addEventListener(
+    'wheel',
+    (e) => {
+      if (mobile.matches || !cfg.scroll.pause || e.ctrlKey) return;
+      const now = performance.now();
+      if (now < holdUntil) return e.preventDefault();
+      if (heldAt >= 0 && Math.abs(scrollY - scrollYFor(heldAt)) > 40) heldAt = -1;
+      const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * innerHeight : e.deltaY;
+      const from = scrollY;
+      const to = from + dy;
+      for (let i = 0; i <= segs; i++) {
+        const y = scrollYFor(i);
+        if (i === heldAt || !((from < y && to >= y) || (from > y && to <= y))) continue;
+        e.preventDefault();
+        scrollTo({ top: y, behavior: reduced.matches ? 'instant' : 'smooth' });
+        heldAt = i;
+        holdUntil = now + cfg.scroll.pause;
+        return;
+      }
+    },
+    { passive: false },
+  );
 
   /* ------------------------------------------------------- Start */
 

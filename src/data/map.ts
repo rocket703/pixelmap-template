@@ -86,6 +86,16 @@ export const SCROLL = {
    * sanft die letzten Pixel nach, damit Schild, Gebäude und Figur ganz zu sehen sind.
    */
   magnet: true,
+  /**
+   * Handy: feste Views – jede Station ist ein Einrastpunkt, ein Wisch bringt genau zur nächsten
+   * (CSS Scroll-Snap). Die Punkte werden pro Handy so berechnet, dass Gebäude und Infoleiste passen.
+   */
+  views: true,
+  /**
+   * Desktop: Beim Scrollen mit Mausrad/Trackpad hält die Seite an jeder Station so viele
+   * Millisekunden an – wer weiterscrollt, scrollt danach normal weiter. 0 = aus.
+   */
+  pause: 450,
   /** Höhe der Station im Bild (Desktop): 0 = oben, 1 = unten */
   focus: 0.45,
   /**

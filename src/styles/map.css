@@ -357,6 +357,28 @@
   content: '▼';
 }
 
+/* Handy: feste Views – JS setzt je Station einen Einrastpunkt (top = Scroll-Position) */
+html.snap-views {
+  scroll-snap-type: y mandatory;
+}
+.snap-points {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 0;
+  pointer-events: none;
+}
+.snap-point {
+  position: absolute;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  scroll-snap-align: start;
+  /* Ein Wisch = eine Station, auch bei viel Schwung */
+  scroll-snap-stop: always;
+}
+
 /* Inhaltsfenster: liegen über der Map und scrollen mit; JS setzt die Position neben der Station */
 .js .stations {
   position: absolute;
