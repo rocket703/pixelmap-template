@@ -78,7 +78,8 @@
   left: 0;
   top: 0;
   width: calc(var(--map-w) * var(--s, 2) * 1px);
-  height: 100%;
+  /* volle Map-Höhe; auf dem Handy kürzt JS die .map unter der Tür (letzte View mit Footer) */
+  height: calc(var(--map-h) * var(--s, 2) * 1px);
   will-change: transform;
 }
 .layer {

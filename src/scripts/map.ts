@@ -111,7 +111,12 @@ export function initMap() {
   }
 
   /** Scroll-Position, bei der Station i das Ziel ist. Der Start ist immer ganz oben (kein Hochscrollen beim Laden). */
-  const scrollYFor = (i: number) => (i === 0 ? 0 : clamp(stationY[i] * scale - focusPx(i), 0, maxScroll()));
+  const scrollYFor = (i: number) => {
+    if (i === 0) return 0;
+    // Handy: Die letzte View (Tür) ist das Seitenende – darunter steht der ganze Footer
+    if (snapViews() && i === segs) return maxScroll();
+    return clamp(stationY[i] * scale - focusPx(i), 0, maxScroll());
+  };
 
   /** Scroll-Position → Fortschritt in Stationen (0 … segs, Bruchteile zwischen zwei Stationen) */
   function progress() {
@@ -147,7 +152,7 @@ export function initMap() {
     const on = snapViews();
     root.classList.toggle('snap-views', on);
     if (!on) return snapBox.replaceChildren();
-    const ys = [...stationY.map((_, i) => scrollYFor(i)), maxScroll()];
+    const ys = pages();
     snapBox.replaceChildren(
       ...ys.map((y) => {
         const el = document.createElement('div');
@@ -160,7 +165,8 @@ export function initMap() {
 
   /* Wisch-Blättern: ein Wisch = genau eine Station weiter/zurück, egal wie viel Schwung.
      Natives Scrollen ist dafür abgeschaltet – außer in einer Infoleiste, deren Text länger ist. */
-  const pages = () => [...stationY.map((_, i) => scrollYFor(i)), maxScroll()];
+  const pages = () =>
+    [...stationY.map((_, i) => scrollYFor(i)), maxScroll()].filter((y, i, all) => i === 0 || y - all[i - 1] > 1);
   let pageTarget = -1; // Ziel einer laufenden Blätter-Animation (für schnelle Folgewische)
   let touchY0 = 0;
   let touchDir = 0;
@@ -227,8 +233,22 @@ export function initMap() {
     const wish = clamp(Math.floor(Math.min(vw, vh) / zoom.viewSpan), zoom.min, zoom.max);
     scale = Math.max(wish, Math.ceil(vw / width));
     root.style.setProperty('--s', String(scale));
+    fitLastView();
     snapCamera = true;
     updateSnaps();
+  }
+
+  /**
+   * Handy: Die Map endet so knapp unter der Tür, dass in der letzten View Tür (mit Schild) und der
+   * komplette Footer gleichzeitig zu sehen sind – passend zur Bildschirmhöhe jedes Handys.
+   */
+  function fitLastView() {
+    if (!snapViews()) return void (mapEl!.style.height = '');
+    const footerH = document.querySelector<HTMLElement>('.site-footer')?.offsetHeight ?? 0;
+    const door = cfg.stations[segs];
+    const doorView = (door.h + cfg.gap) * scale + signH + 10; // Gebäude + Schild über dem Wegpunkt
+    const below = clamp(vh - footerH - headerH - doorView, 24, 400);
+    mapEl!.style.height = `${Math.round(stationY[segs] * scale + below)}px`;
   }
 
   /* ---------------------------------------------- Hauptschleife */
