@@ -67,7 +67,17 @@ const external = (href: string) => /^https?:/.test(href);
                 <PixelIcon name={l.icon} />
               </span>
               <span class="link-text">
-                <strong>{l.label}</strong>
+                <strong>
+                  {l.label}
+                  {l.icon === 'twitch' && (
+                    <>
+                      <span class="link-live" aria-hidden="true">
+                        Live
+                      </span>
+                      <span class="visually-hidden" data-live-text />
+                    </>
+                  )}
+                </strong>
                 {l.sub && <small>{l.sub}</small>}
               </span>
               <span class="link-arrow" aria-hidden="true">
@@ -86,6 +96,10 @@ const external = (href: string) => /^https?:/.test(href);
   </main>
 
   <script>
+    import { initLive } from '../scripts/live';
+    import { LIVE } from '../data/live';
+    if (LIVE.pbUrl) initLive(LIVE.pbUrl, LIVE.timeZone, LIVE.refresh);
+
     // Teilen: natives Teilen-Menü am Handy, sonst Link kopieren
     const btn = document.querySelector<HTMLButtonElement>('.share');
     const status = document.querySelector<HTMLElement>('.share-status');

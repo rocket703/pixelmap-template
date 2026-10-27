@@ -15,7 +15,10 @@ const href = (id: string) => (onMap ? `#${id}` : url(`/#${id}`));
 <header class="site-header">
   <a class="brand" href={onMap ? '#start' : url('/')}><span class="brand-heart" aria-hidden="true">♥</span> {SITE.name}</a>
   <a class="btn btn-live" href={SOCIALS.twitch.href} rel="noopener" target="_blank">
-    <span class="live-dot" aria-hidden="true"></span>Twitch
+    <span class="live-dot" aria-hidden="true"></span><span class="when-offline">Twitch</span><span
+      class="when-live"
+      aria-hidden="true">Live</span
+    ><span class="visually-hidden" data-live-text></span>
   </a>
   <!-- Burger erst mit JavaScript; ohne JS bleibt die Navigation sichtbar -->
   <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" hidden>
@@ -40,6 +43,10 @@ const href = (id: string) => (onMap ? `#${id}` : url(`/#${id}`));
 </header>
 
 <script>
+  import { initLive } from '../scripts/live';
+  import { LIVE } from '../data/live';
+  if (LIVE.pbUrl) initLive(LIVE.pbUrl, LIVE.timeZone, LIVE.refresh);
+
   const toggle = document.querySelector<HTMLButtonElement>('.nav-toggle');
   const nav = document.getElementById('site-nav');
   if (toggle && nav) {

@@ -1,0 +1,305 @@
+---
+/**
+ * Studio: Hier schaltet die Streamerin den Live-Status und pflegt den Streamplan.
+ * Login per Einmal-Code an ihre E-Mail (PocketBase OTP). Nicht verlinkt, nicht in der Sitemap.
+ */
+import Base from '../layouts/Base.astro';
+import { url } from '../lib/url';
+import { SITE } from '../data/stations';
+import { LIVE } from '../data/live';
+import '../styles/studio.css';
+---
+
+<Base title="Studio" noindex bodyClass="studio-page">
+  <header class="studio-bar">
+    <a class="brand" href={url('/')}><span class="brand-heart" aria-hidden="true">♥</span> {SITE.name}</a>
+    <span class="studio-tag">Studio</span>
+    <button class="studio-logout" type="button" hidden>Abmelden</button>
+  </header>
+
+  <main id="inhalt" class="page studio" data-pb={LIVE.pbUrl} data-tz={LIVE.timeZone}>
+    {
+      !LIVE.pbUrl && (
+        <section class="box">
+          <h1>Studio nicht eingerichtet</h1>
+          <p>
+            Für den Live-Status braucht die Seite einen PocketBase-Server. Beim Build die Adresse als
+            <code>PUBLIC_PB_URL</code> setzen (siehe README).
+          </p>
+        </section>
+      )
+    }
+
+    <!-- 1. Anmelden: E-Mail → Code -->
+    <section class="box" id="login" hidden>
+      <h1>Anmelden</h1>
+      <form id="form-email">
+        <label>E-Mail-Adresse <input type="email" name="email" autocomplete="email" required /></label>
+        <button class="btn" type="submit">Code per E-Mail anfordern →</button>
+      </form>
+      <form id="form-code" hidden>
+        <p>Wir haben dir einen 6-stelligen Code geschickt. Er gilt 10 Minuten.</p>
+        <label
+          >Code <input name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required
+          /></label
+        >
+        <div class="row">
+          <button class="btn" type="submit">Anmelden →</button>
+          <button class="link-btn-plain" type="button" data-action="restart">Andere Adresse / neuer Code</button>
+        </div>
+      </form>
+      <p class="msg" role="status"></p>
+    </section>
+
+    <!-- 2. Live-Status -->
+    <section class="box" id="panel-live" hidden>
+      <p class="kicker">Live-Status</p>
+      <h1>Bist du gerade live?</h1>
+      <p class="now">Die Seite zeigt gerade: <strong data-effective>…</strong></p>
+      <div class="modes" role="radiogroup" aria-label="Live-Status">
+        <button type="button" role="radio" data-mode="auto">
+          <strong>Automatisch</strong><small>nach Streamplan</small>
+        </button>
+        <button type="button" role="radio" data-mode="on">
+          <strong>● Jetzt live</strong><small>bis du es ausschaltest</small>
+        </button>
+        <button type="button" role="radio" data-mode="off">
+          <strong>Offline</strong><small>auch wenn der Plan anderes sagt</small>
+        </button>
+      </div>
+      <p class="msg" role="status"></p>
+    </section>
+
+    <!-- 3. Streamplan -->
+    <section class="box" id="panel-plan" hidden>
+      <p class="kicker">Streamplan</p>
+      <h2>Wann bist du live?</h2>
+      <p>Zeiten in deutscher Zeit. Endet ein Stream nach Mitternacht, einfach die Endzeit eintragen (z. B. 20:00–01:00).</p>
+      <div class="plan" id="plan"></div>
+      <button class="btn" type="button" data-action="add">＋ Termin hinzufügen</button>
+      <p class="msg" role="status"></p>
+    </section>
+
+    <template id="row-tpl">
+      <form class="plan-row">
+        <label
+          >Tag
+          <select name="weekday">
+            <option value="mo">Mo</option><option value="di">Di</option><option value="mi">Mi</option><option value="do"
+              >Do</option
+            ><option value="fr">Fr</option><option value="sa">Sa</option><option value="so">So</option>
+          </select>
+        </label>
+        <label>von <input type="time" name="start" required /></label>
+        <label>bis <input type="time" name="end" required /></label>
+        <label class="grow">Titel <input name="title" maxlength="60" placeholder="z. B. Horror Night" /></label>
+        <div class="row-actions">
+          <button class="btn btn-small" type="submit">Speichern</button>
+          <button class="link-btn-plain danger" type="button" data-action="delete">Löschen</button>
+        </div>
+      </form>
+    </template>
+  </main>
+
+  <script>
+    import PocketBase from 'pocketbase';
+    import { isLive, sortSlots, type Mode, type Slot } from '../lib/live';
+
+    const main = document.querySelector<HTMLElement>('.studio')!;
+    const PB_URL = main.dataset.pb;
+    const TZ = main.dataset.tz ?? 'Europe/Berlin';
+    const $ = <T extends HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector<T>(sel)!;
+
+    if (PB_URL) start(new PocketBase(PB_URL));
+
+    function start(pb: PocketBase) {
+      const login = $('#login');
+      const panelLive = $('#panel-live');
+      const panelPlan = $('#panel-plan');
+      const logout = $<HTMLButtonElement>('.studio-logout');
+      const msg = (section: HTMLElement, text: string, error = false) => {
+        const el = $('.msg', section);
+        el.textContent = text;
+        el.classList.toggle('is-error', error);
+      };
+      const errText = (e: unknown) => {
+        const err = e as { status?: number; message?: string };
+        if (err.status === 0) return 'Server nicht erreichbar.';
+        if (err.status === 429) return 'Zu viele Versuche – bitte kurz warten.';
+        return err.message ?? 'Unbekannter Fehler.';
+      };
+
+      let statusId = '';
+      let mode: Mode = 'auto';
+      let slots: Slot[] = [];
+
+      /* ---------------------------------------------- Anmelden */
+      let otpId = '';
+      const formEmail = $<HTMLFormElement>('#form-email');
+      const formCode = $<HTMLFormElement>('#form-code');
+
+      formEmail.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = new FormData(formEmail).get('email') as string;
+        msg(login, 'Code wird gesendet …');
+        try {
+          otpId = (await pb.collection('users').requestOTP(email)).otpId;
+          formEmail.hidden = true;
+          formCode.hidden = false;
+          // Aus Datenschutzgründen sagt der Server nicht, ob es die Adresse gibt
+          msg(login, 'Falls die Adresse freigeschaltet ist, ist der Code unterwegs.');
+          $<HTMLInputElement>('input[name=code]', formCode).focus();
+        } catch (err) {
+          msg(login, errText(err), true);
+        }
+      });
+
+      formCode.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const code = (new FormData(formCode).get('code') as string).trim();
+        try {
+          await pb.collection('users').authWithOTP(otpId, code);
+          formCode.reset();
+          void showPanel();
+        } catch (err) {
+          msg(login, (err as { status?: number }).status === 400 ? 'Code falsch oder abgelaufen.' : errText(err), true);
+        }
+      });
+
+      $('[data-action=restart]', formCode).addEventListener('click', () => {
+        formCode.hidden = true;
+        formEmail.hidden = false;
+        msg(login, '');
+      });
+
+      logout.addEventListener('click', () => {
+        pb.authStore.clear();
+        showLogin();
+      });
+
+      function showLogin() {
+        login.hidden = false;
+        panelLive.hidden = panelPlan.hidden = logout.hidden = true;
+        formEmail.hidden = false;
+        formCode.hidden = true;
+      }
+
+      async function showPanel() {
+        login.hidden = true;
+        panelLive.hidden = panelPlan.hidden = logout.hidden = false;
+        await Promise.all([loadStatus(), loadPlan()]);
+      }
+
+      /* ---------------------------------------------- Live-Status */
+      const modeButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-mode]')];
+
+      function renderStatus() {
+        modeButtons.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.mode === mode)));
+        const live = isLive(mode, slots, TZ);
+        const el = $('[data-effective]', panelLive);
+        el.textContent = live ? '● LIVE' : 'offline';
+        el.classList.toggle('is-live-text', live);
+      }
+
+      async function loadStatus() {
+        try {
+          const rec = (await pb.collection('status').getList(1, 1)).items[0];
+          statusId = rec.id;
+          mode = rec.mode;
+          renderStatus();
+        } catch (err) {
+          msg(panelLive, errText(err), true);
+        }
+      }
+
+      modeButtons.forEach((b) =>
+        b.addEventListener('click', async () => {
+          const next = b.dataset.mode as Mode;
+          try {
+            await pb.collection('status').update(statusId, { mode: next });
+            mode = next;
+            renderStatus();
+            msg(panelLive, 'Gespeichert – die Seite zeigt es innerhalb einer Minute an.');
+          } catch (err) {
+            msg(panelLive, errText(err), true);
+          }
+        }),
+      );
+
+      /* ---------------------------------------------- Streamplan */
+      const plan = $('#plan');
+      const tpl = $<HTMLTemplateElement>('#row-tpl');
+
+      function addRow(slot?: Slot) {
+        const row = tpl.content.firstElementChild!.cloneNode(true) as HTMLFormElement;
+        if (slot) {
+          row.dataset.id = slot.id;
+          (row.elements.namedItem('weekday') as HTMLSelectElement).value = slot.weekday;
+          (row.elements.namedItem('start') as HTMLInputElement).value = slot.start;
+          (row.elements.namedItem('end') as HTMLInputElement).value = slot.end;
+          (row.elements.namedItem('title') as HTMLInputElement).value = slot.title ?? '';
+        } else row.classList.add('is-new');
+        row.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const data = Object.fromEntries(new FormData(row)) as unknown as Slot;
+          try {
+            const rec = row.dataset.id
+              ? await pb.collection('schedule').update(row.dataset.id, data)
+              : await pb.collection('schedule').create(data);
+            row.dataset.id = rec.id;
+            row.classList.remove('is-new');
+            await loadPlan();
+            msg(panelPlan, 'Termin gespeichert.');
+          } catch (err) {
+            msg(panelPlan, errText(err), true);
+          }
+        });
+        $('[data-action=delete]', row).addEventListener('click', async () => {
+          if (row.dataset.id) {
+            if (!confirm('Diesen Termin löschen?')) return;
+            try {
+              await pb.collection('schedule').delete(row.dataset.id);
+            } catch (err) {
+              return msg(panelPlan, errText(err), true);
+            }
+          }
+          row.remove();
+          slots = slots.filter((s) => s.id !== row.dataset.id);
+          renderStatus();
+          msg(panelPlan, 'Termin gelöscht.');
+        });
+        plan.append(row);
+        return row;
+      }
+
+      async function loadPlan() {
+        try {
+          slots = sortSlots(await pb.collection('schedule').getFullList<Slot & { id: string }>());
+          plan.replaceChildren();
+          slots.forEach((s) => addRow(s));
+          renderStatus();
+        } catch (err) {
+          msg(panelPlan, errText(err), true);
+        }
+      }
+
+      $('[data-action=add]', panelPlan).addEventListener('click', () => {
+        const row = addRow();
+        $<HTMLSelectElement>('select', row).focus();
+      });
+
+      /* ---------------------------------------------- Start */
+      if (pb.authStore.isValid && pb.authStore.record?.collectionName === 'users') {
+        pb.collection('users')
+          .authRefresh()
+          .then(showPanel)
+          .catch(() => {
+            pb.authStore.clear();
+            showLogin();
+          });
+      } else showLogin();
+      // Status jede Minute neu bewerten (Plan-Zeiten)
+      setInterval(renderStatus, 60_000);
+    }
+  </script>
+</Base>

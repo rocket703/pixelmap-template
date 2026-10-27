@@ -37,6 +37,8 @@ export interface Station {
   /** Blickrichtung der Figur, wenn sie an der Station steht */
   face?: Facing;
   building: BuildingType;
+  /** Liste wird durch den Streamplan aus PocketBase ersetzt (falls eingerichtet) */
+  schedule?: boolean;
 }
 
 export const SOCIALS = {
@@ -128,6 +130,7 @@ export const STATIONS: Station[] = [
     panel: 'right',
     face: 'up',
     building: 'tower',
+    schedule: true,
   },
   {
     id: 'games',

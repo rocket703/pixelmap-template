@@ -227,6 +227,45 @@ img {
   }
 }
 
+/* Live (html.is-live, gesetzt von src/scripts/live.ts): Button wird rot, pulsiert und zeigt „Live“ */
+.when-live {
+  display: none;
+}
+.is-live .btn-live .when-live {
+  display: inline;
+}
+.is-live .btn-live .when-offline {
+  display: none;
+}
+.is-live .btn-live {
+  background: var(--live);
+  box-shadow:
+    inset calc(var(--px) * -1) calc(var(--px) * -1) 0 0 #a8203c,
+    var(--px) var(--px) 0 0 var(--outline);
+  animation: live-pulse 1.4s ease-in-out infinite;
+}
+.is-live .live-dot {
+  background: #fff;
+  box-shadow: 0 0 0 2px #fff;
+}
+@keyframes live-pulse {
+  50% {
+    box-shadow:
+      inset calc(var(--px) * -1) calc(var(--px) * -1) 0 0 #a8203c,
+      var(--px) var(--px) 0 0 var(--outline),
+      0 0 0.9rem 0.2rem color-mix(in srgb, var(--live) 70%, transparent);
+  }
+}
+/* Streamplan: aktueller Termin */
+.box li.is-now {
+  color: #fff;
+  font-weight: 700;
+}
+.box li.is-now::after {
+  content: ' ● live';
+  color: var(--live);
+}
+
 /* Burger: nur mit JavaScript und nur auf schmalen Bildschirmen */
 .nav-toggle {
   display: none;
@@ -410,7 +449,8 @@ img {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .live-dot {
+  .live-dot,
+  .is-live .btn-live {
     animation: none;
   }
 }

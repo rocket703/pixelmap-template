@@ -97,7 +97,10 @@ const heroStyle = [
             data-building={s.id}
             data-frames={frames}
             style={`--src:url(${url(`/assets/buildings/${s.building}.png`)});--dx:${d.x};--dy:${d.y};--mx:${m.x};--my:${m.y};--w:${d.w};--h:${d.h};--frames:${frames}`}
-          />
+          >
+            {/* LIVE-Schild am Studio: leuchtet, wenn die Streamerin live ist (PocketBase) */}
+            {s.building === 'studio' && <span class="live-sign" />}
+          </div>
         ))
       }
       <div class="park" id="park" style={parkStyle}></div>

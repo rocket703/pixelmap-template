@@ -107,6 +107,32 @@
 .building[data-frames='2'].is-active {
   background-position-x: calc(var(--w) * var(--s) * -1px);
 }
+/* LIVE-Schild am Studio (Map-Pixel 31,21 – 23×9 in studio.png): aus = gedimmt, live = leuchtet */
+.live-sign {
+  position: absolute;
+  left: calc(31 * var(--s) * 1px);
+  top: calc(21 * var(--s) * 1px);
+  width: calc(23 * var(--s) * 1px);
+  height: calc(9 * var(--s) * 1px);
+  pointer-events: none;
+}
+.live-enabled:not(.is-live) .live-sign {
+  background: rgb(18 10 36 / 0.62);
+}
+.is-live .live-sign {
+  box-shadow:
+    0 0 calc(var(--s) * 2px) calc(var(--s) * 1px) var(--live),
+    0 0 calc(var(--s) * 10px) calc(var(--s) * 2px) color-mix(in srgb, var(--live) 55%, transparent);
+  animation: sign-glow 1.6s steps(4) infinite;
+}
+@keyframes sign-glow {
+  50% {
+    box-shadow:
+      0 0 calc(var(--s) * 1px) 0 var(--live),
+      0 0 calc(var(--s) * 5px) calc(var(--s) * 1px) color-mix(in srgb, var(--live) 40%, transparent);
+  }
+}
+
 /* Ankunft: Gebäude hüpft kurz */
 .building.is-active {
   animation: arrive 0.45s steps(4);
@@ -499,6 +525,7 @@ html.snap-views {
 @media (prefers-reduced-motion: reduce) {
   .hero.is-walking,
   .building.is-active,
+  .is-live .live-sign,
   .npc,
   .dog::after,
   .hero-hint-arrow::before,

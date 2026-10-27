@@ -30,6 +30,8 @@ src/scripts/map.ts     Scroll → Ziel → Figur → Kamera → Inhalt
 src/pages/index.astro  Die Map (Ebenen, Gebäude, Figur, Stationen als <section>)
 src/pages/kontakt.astro  Kooperationsanfrage (Unterseite)
 src/pages/links.astro  Linkseite für die Bio (Daten: src/data/links.ts)
+src/pages/studio.astro Studio der Streamerin: Live-Schalter und Streamplan (PocketBase)
+pocketbase/           Migration für den PocketBase-Server (Live-Status, Streamplan, Login)
 src/components/        Kopfzeile mit Burger-Menü, Footer, Station
 src/styles/global.css  Farben & Schrift als CSS-Variablen, Boxen, Buttons, Kopfzeile
 src/styles/map.css     Map-Modus (nur auf der Startseite geladen)
@@ -66,13 +68,14 @@ Barrierefreiheit und Fallbacks:
 ## Zwei Maps: Desktop und Handy
 
 Bis 700 px Bildschirmbreite (`MOBILE_QUERY` in `src/data/layouts.ts`) zeigt die Seite eine eigene,
-schmale Handy-Map: Alle Gebäude stehen mittig untereinander, man scrollt nur gerade nach unten.
-Zwischen zwei Gebäuden schwenkt der Weg zur Seite aus dem Bild (die Figur läuft mit hinaus und
-kommt weiter unten wieder herein). Die Kamera bewegt sich dort nicht seitlich.
+schmale Handy-Map: Alle Gebäude stehen mittig untereinander, dazwischen läuft der Weg als
+durchgehende Schlange hin und her – immer im Bild. Die Kamera bewegt sich dort nicht seitlich.
+Jede Station ist eine feste View: Ein Wisch nach oben bringt genau zur nächsten (pro Handy so
+berechnet, dass Gebäude und Infoleiste passen).
 
 - Die Handy-Map wird **automatisch** aus der Reihenfolge der Stationen berechnet – eine neue Station
-  erscheint dort von selbst. Zu welcher Seite der Weg nach jeder Station ausschwenkt, steht in
-  `SIDES`, Abstände und Breite in `M` (beides `src/data/layouts.ts`).
+  erscheint dort von selbst. Breite, Lage der Seitenwege und Tiefe des Zickzacks stehen in `M`
+  (`src/data/layouts.ts`).
 - Der Browser lädt per `<picture>` nur die Ebenen der passenden Map. Dreht man das Handy über die
   Grenze, wechselt die Map, die Figur bleibt an ihrer Station.
 - Der Hundeplatz liegt auf beiden Maps zwischen Start und erster Station (`parkAt(...)`).
@@ -142,6 +145,39 @@ Gepflegt wird sie in `src/data/links.ts`:
 Die Kanal-Adressen kommen aus `SOCIALS` in `src/data/stations.ts`, also nur an einer Stelle ändern.
 Symbole sind selbst gezeichnete Pixel-Icons in `src/components/PixelIcon.astro`.
 
+## Live-Status mit PocketBase
+
+Die Streamerin schaltet auf `/studio` selbst, ob sie live ist – von Hand oder automatisch nach
+ihrem Streamplan. Ist sie live, pulsiert der Twitch-Button oben (Desktop und Handy, er zeigt dann
+„Live“), das LIVE-Schild am Studio auf der Map leuchtet, und der aktuelle Termin im Streamplan ist
+markiert. Die Streamplan-Station zeigt automatisch den Plan aus PocketBase.
+
+Ohne PocketBase (`PUBLIC_PB_URL` leer) ist das alles abgeschaltet und die Seite bleibt statisch.
+
+**Einrichten (einmalig, auf einem eigenen Server):**
+1. PocketBase herunterladen (https://pocketbase.io, getestet mit v0.40.6) und den Ordner
+   `pocketbase/pb_migrations` aus diesem Repo neben die `pocketbase`-Datei kopieren.
+2. Starten, z. B. unter einer Subdomain mit HTTPS:
+   `./pocketbase serve --http 127.0.0.1:8090 --origins https://deine-domain.de`
+   (Reverse-Proxy wie Caddy/nginx davor; `--origins` erlaubt nur Anfragen von der eigenen Seite.)
+   Die Migration legt `status`, `schedule` und die Login-Einstellungen automatisch an.
+3. Im Dashboard (`/_/`) den Admin anlegen, unter *Settings → Mail settings* SMTP eintragen
+   (sonst kommen keine Codes an).
+4. Unter *Collections → users → New record* das Konto der Streamerin anlegen: ihre E-Mail,
+   *verified* an, ein beliebiges langes Passwort (wird nicht benutzt – Login nur per Code).
+5. Beim Build die Adresse setzen: `PUBLIC_PB_URL=https://studio.deine-domain.de npm run build`.
+   Für GitHub Pages: *Settings → Secrets and variables → Actions → Variables* →
+   `PUBLIC_PB_URL` anlegen; der Workflow übernimmt sie.
+
+**Sicherheit:** Lesen dürfen alle (Status und Plan sind öffentlich), ändern nur angemeldete
+users. Selbstregistrierung und Passwort-Login sind aus; Codes gibt es nur für Adressen, die im
+Dashboard angelegt sind (fremde Adressen bekommen keine Mail). Ein Code gilt 10 Minuten.
+
+**Modi im Studio:** *Automatisch* (live, wenn gerade ein Termin läuft), *Jetzt live*
+(bis sie es ausschaltet) und *Offline* (auch wenn der Plan anderes sagt). Die Seite fragt den
+Status jede Minute neu ab (`LIVE.refresh` in `src/data/live.ts`). Termine über Mitternacht:
+Ende vor Beginn eintragen (z. B. 20:00–01:00). Zeitzone: Europe/Berlin.
+
 ## Vorschau auf GitHub Pages
 
 Bei jedem Push auf `main` baut `.github/workflows/pages.yml` die Seite und veröffentlicht sie auf
@@ -173,6 +209,8 @@ In `src/data/map.ts`:
 | `HERO.sprintMax` (4) | Höchstens so viel schneller beim Aufholen; `1` = nie sprinten |
 | `SCROLL.hold` (0.4) | Wie lange die Figur beim Scrollen an einer Station stehen bleibt |
 | `SCROLL.snap` (false) | Nach dem Scrollen an der nächsten Station einrasten |
+| `SCROLL.pause` (450) | Desktop: kurzer Halt in ms, wenn Mausrad/Trackpad über eine Station scrollt; 0 = aus |
+| `SCROLL.views` (true) | Handy: feste Views – ein Wisch = genau eine Station weiter/zurück |
 | `SCROLL.magnet` (true) | Handy: in der Nähe einer Station die letzten Pixel sanft nachrücken, damit das Haus ganz zu sehen ist |
 | `SCROLL.focus` | Desktop: auf welcher Bildhöhe die Station steht (0 = oben, 1 = unten) |
 | `SCROLL.focusMobile` | Handy: Station steht automatisch so, dass das Gebäude unter die Kopfzeile passt – höchstens auf dieser Höhe |

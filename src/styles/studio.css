@@ -1,0 +1,149 @@
+/* Studio: Live-Schalter und Streamplan-Editor für die Streamerin */
+
+.studio-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-height: var(--header-h);
+  padding: 0.4rem 1rem;
+  background: var(--surface);
+  border-bottom: var(--px) solid var(--brand);
+}
+.studio-tag {
+  padding: 0.1rem 0.5rem;
+  font: 700 0.85rem/1.4 var(--font-heading);
+  color: var(--bg);
+  background: var(--accent);
+}
+.studio-logout {
+  margin-left: auto;
+  padding: 0.3rem 0.6rem;
+  font: inherit;
+  color: var(--text);
+  background: none;
+  border: 2px solid var(--accent-2);
+  cursor: pointer;
+}
+
+.studio .box + .box {
+  margin-top: 1.75rem;
+}
+.studio form {
+  display: grid;
+  gap: 0.9rem;
+}
+.studio .row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+}
+.studio .msg {
+  min-height: 1.4em;
+  margin: 1rem 0 0;
+  color: var(--accent);
+}
+.studio .msg.is-error {
+  color: var(--live);
+}
+.link-btn-plain {
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.link-btn-plain.danger {
+  color: var(--live);
+}
+.btn-small {
+  padding: 0.3rem 0.7rem 0.35rem;
+  font-size: 0.9rem;
+}
+
+/* Live-Modus: drei große Pixel-Schalter */
+.now {
+  font-size: 1.1rem;
+}
+.is-live-text {
+  color: var(--live);
+}
+.modes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+.modes button {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.9rem 0.8rem;
+  text-align: left;
+  color: var(--text);
+  background: var(--bg);
+  border: var(--px) solid var(--outline);
+  box-shadow: inset 0 0 0 var(--px) var(--surface-2);
+  cursor: pointer;
+}
+.modes strong {
+  font: 700 1.15rem/1.2 var(--font-heading);
+}
+.modes small {
+  color: var(--muted);
+}
+.modes button[aria-checked='true'] {
+  background: var(--brand);
+  box-shadow:
+    inset calc(var(--px) * -1) calc(var(--px) * -1) 0 0 var(--brand-dark),
+    var(--px) var(--px) 0 0 var(--outline);
+}
+.modes button[data-mode='on'][aria-checked='true'] {
+  background: var(--live);
+}
+.modes button[aria-checked='true'] small {
+  color: #fff;
+}
+
+/* Streamplan-Zeilen */
+.plan {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1rem 0 1.25rem;
+}
+.plan-row.plan-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.6rem 0.75rem;
+  padding: 0.75rem;
+  background: var(--bg);
+  border: 2px solid var(--surface-2);
+}
+.plan-row.is-new {
+  border-color: var(--accent);
+}
+.plan-row label {
+  display: grid;
+  gap: 0.2rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.plan-row .grow {
+  flex: 1 1 10rem;
+}
+.plan-row input,
+.plan-row select {
+  font: inherit;
+  color: var(--text);
+  padding: 0.4rem 0.5rem;
+  border: 2px solid var(--accent-2);
+  background: var(--surface);
+  border-radius: 0;
+}
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}

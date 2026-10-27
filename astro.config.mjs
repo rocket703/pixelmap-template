@@ -14,8 +14,8 @@ export default defineConfig({
   compressHTML: true,
   integrations: [
     sitemap({
-      // Rechtliche Seiten stehen auf noindex und gehören nicht in die Sitemap
-      filter: (page) => !/\/(impressum|datenschutz)$/.test(page),
+      // Rechtliche Seiten und das Studio stehen auf noindex und gehören nicht in die Sitemap
+      filter: (page) => !/\/(impressum|datenschutz|studio)$/.test(page),
     }),
   ],
 });

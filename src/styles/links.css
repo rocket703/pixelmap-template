@@ -180,7 +180,28 @@
   color: var(--accent);
 }
 
+/* Live: Twitch-Button pulsiert, Hinweis „Live“ neben dem Namen */
+.link-live {
+  display: none;
+  margin-left: 0.5rem;
+  padding: 0 0.4rem;
+  font-size: 0.8rem;
+  vertical-align: 0.15em;
+  color: var(--live);
+  background: #fff;
+}
+.is-live .link-live {
+  display: inline-block;
+}
+.is-live .link-btn.is-featured {
+  background: var(--live);
+  animation: live-pulse 1.4s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .is-live .link-btn.is-featured {
+    animation: none;
+  }
   .avatar-hero {
     animation: none;
   }
