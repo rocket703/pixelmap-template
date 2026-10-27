@@ -1,0 +1,45 @@
+---
+import SubPage from '../layouts/SubPage.astro';
+import { SITE, SOCIALS } from '../data/stations';
+---
+
+<SubPage
+  title="Kontakt & Kooperationen"
+  description="Kooperationen, Events und Collabs mit Pixelpixie anfragen – Brand-Deals, Sponsoring und Mediakit."
+  station="kontakt"
+>
+  <article class="box">
+    <p class="kicker">Business</p>
+    <h1>Kontakt & Kooperationen</h1>
+    <p>
+      Für Kooperationen, Events und Collabs erreichst du mich per E-Mail an
+      <a href={`mailto:${SITE.email}`}>{SITE.email}</a> oder über das Formular. Fan-Fragen stellst du am besten direkt im
+      <a href={SOCIALS.discord.href} target="_blank" rel="noopener">Discord</a>.
+    </p>
+    <!-- Platzhalter-Formular: action auf den eigenen Formular-Dienst setzen -->
+    <form action={`mailto:${SITE.email}`} method="post" enctype="text/plain">
+      <label>Name <input name="name" autocomplete="name" required /></label>
+      <label>E-Mail <input type="email" name="email" autocomplete="email" required /></label>
+      <label>Firma / Marke <input name="firma" autocomplete="organization" /></label>
+      <label
+        >Anliegen
+        <select name="anliegen">
+          <option>Kooperation / Sponsoring</option>
+          <option>Event / Turnier</option>
+          <option>Collab-Stream</option>
+          <option>Sonstiges</option>
+        </select>
+      </label>
+      <label>Nachricht <textarea name="nachricht" rows="5" required></textarea></label>
+      <button class="btn" type="submit">Anfrage senden →</button>
+    </form>
+  </article>
+  <section class="box">
+    <h2>Gut zu wissen</h2>
+    <ul>
+      <li>Mediakit mit Zahlen und Zielgruppe schicke ich gern auf Anfrage.</li>
+      <li>Ich bewerbe nur Produkte, die ich selbst nutze oder getestet habe.</li>
+      <li>Antwort meist innerhalb von 2–3 Werktagen.</li>
+    </ul>
+  </section>
+</SubPage>

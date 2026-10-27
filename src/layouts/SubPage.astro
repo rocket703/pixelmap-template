@@ -1,0 +1,30 @@
+---
+import { url } from '../lib/url';
+import { HERO } from '../data/map';
+import Base from './Base.astro';
+import SiteHeader from '../components/SiteHeader.astro';
+import SiteFooter from '../components/SiteFooter.astro';
+import { STATIONS } from '../data/stations';
+
+interface Props {
+  title: string;
+  description?: string;
+  /** Station, zu der „Zurück zur Map“ führt – die Figur steht dort wieder */
+  station?: string;
+  noindex?: boolean;
+}
+const { title, description, station, noindex } = Astro.props;
+const st = STATIONS.find((s) => s.id === station);
+---
+
+<Base title={title} description={description} noindex={noindex}>
+  <SiteHeader current={station} />
+  <main id="inhalt" class="page">
+    <a class="back-link" href={url(st ? `/#${st.id}` : '/')}>
+      <span class="sprite" aria-hidden="true" style={`background-image:url(${url(HERO.src)})`}></span>
+      ← Zurück zur Map{st && ` (${st.nav})`}
+    </a>
+    <slot />
+  </main>
+  <SiteFooter />
+</Base>

@@ -1,0 +1,22 @@
+---
+import { url } from '../lib/url';
+import { SITE, SOCIALS } from '../data/stations';
+---
+
+<footer class="site-footer">
+  <ul class="socials" aria-label="Kanäle">
+    {
+      Object.values(SOCIALS).map((s) => (
+        <li>
+          <a href={s.href} target="_blank" rel="noopener">
+            {s.label}
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+  <p>
+    <a href={url('/kontakt')}>Kontakt</a> · <a href={url('/impressum')}>Impressum</a> · <a href={url('/datenschutz')}>Datenschutz</a>
+  </p>
+  <p class="copy">© {new Date().getFullYear()} {SITE.name}</p>
+</footer>

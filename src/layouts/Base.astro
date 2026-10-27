@@ -1,0 +1,65 @@
+---
+import { url } from '../lib/url';
+import '@fontsource/pixelify-sans/latin-400.css';
+import '@fontsource/pixelify-sans/latin-700.css';
+import '../styles/global.css';
+import { SITE, SOCIALS } from '../data/stations';
+
+interface Props {
+  /** Seitentitel; leer = Startseite */
+  title?: string;
+  description?: string;
+  noindex?: boolean;
+  /** Klasse am <body>, z. B. "map-page" */
+  bodyClass?: string;
+}
+
+const { title, description = SITE.description, noindex = false, bodyClass } = Astro.props;
+const fullTitle = title ? `${title} | ${SITE.name}` : `${SITE.name} – ${SITE.tagline} auf Twitch`;
+const canonical = new URL(Astro.url.pathname.replace(/\.html$/, ''), Astro.site);
+const ogImage = new URL(url('/assets/og.png'), Astro.site);
+// Vorschau-Builds (z. B. GitHub Pages) nicht in Suchmaschinen aufnehmen: PUBLIC_NOINDEX=true
+const preview = import.meta.env.PUBLIC_NOINDEX === 'true';
+
+const schema = {
+  '@context': 'https://schema.org',
+  '@type': 'Person',
+  name: SITE.name,
+  description: SITE.description,
+  url: Astro.site?.href,
+  email: SITE.email,
+  sameAs: Object.values(SOCIALS).map((s) => s.href),
+};
+---
+
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <!-- Ohne JavaScript bleibt die Seite eine normale, lesbare Seite; Map und Burger-Menü hängen an html.js -->
+    <script is:inline>document.documentElement.classList.add('js');</script>
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <meta name="robots" content={noindex || preview ? 'noindex, follow' : 'index, follow'} />
+    <link rel="canonical" href={canonical} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={SITE.name} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#1e1638" />
+    <link rel="icon" href={url('/favicon.svg')} type="image/svg+xml" />
+    <link rel="sitemap" href={url('/sitemap-index.xml')} />
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(schema)} />
+    <slot name="head" />
+  </head>
+  <body class={bodyClass}>
+    <a class="skip-link" href="#inhalt">Zum Inhalt springen</a>
+    <slot />
+  </body>
+</html>

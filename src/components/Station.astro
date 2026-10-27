@@ -1,0 +1,45 @@
+---
+import { url } from '../lib/url';
+import type { Station } from '../data/stations';
+
+interface Props {
+  station: Station;
+  index: number;
+}
+const { station: s, index } = Astro.props;
+const Heading = index === 0 ? 'h1' : 'h2';
+const external = (href: string) => /^https?:/.test(href);
+---
+
+<section id={s.id} class="station box" data-index={index} data-side={s.panel} aria-labelledby={`${s.id}-title`}>
+  {s.kicker && <p class="kicker">{s.kicker}</p>}
+  <Heading id={`${s.id}-title`}>{s.title}</Heading>
+  <p>{s.text}</p>
+  {
+    s.bullets && (
+      <ul>
+        {s.bullets.map((b) => (
+          <li>{b}</li>
+        ))}
+      </ul>
+    )
+  }
+  {
+    s.links && (
+      <p class="actions">
+        {s.links.map((l) =>
+          external(l.href) ? (
+            <a class="btn" href={l.href} target="_blank" rel="noopener">
+              {l.label} ↗
+            </a>
+          ) : (
+            <a class="btn" href={url(l.href)}>
+              {l.label} →
+            </a>
+          ),
+        )}
+      </p>
+    )
+  }
+  {index === 0 && <p class="scroll-hint" aria-hidden="true">Scrollen zum Loslaufen ↓</p>}
+</section>

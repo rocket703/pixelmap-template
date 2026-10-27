@@ -1,0 +1,109 @@
+---
+import { url } from '../lib/url';
+import Base from '../layouts/Base.astro';
+import PixelIcon from '../components/PixelIcon.astro';
+import { LINKS, LINKS_PAGE } from '../data/links';
+import { MAP, HERO, buildingBox } from '../data/map';
+import { PATH, SITE, STATIONS } from '../data/stations';
+import '../styles/links.css';
+
+// Ohne eigenes Foto: kleiner Ausschnitt der Map an der Startstation, Figur davor (Zoom ×4)
+const S = 4;
+const WIN = 36;
+const start = STATIONS[0];
+const p = PATH[start.waypoint];
+const wx = p.x - WIN / 2;
+const wy = p.y - 28;
+const studio = buildingBox(start.building, p);
+const px = (v: number) => `${v * S}px`;
+const external = (href: string) => /^https?:/.test(href);
+---
+
+<Base
+  title={LINKS_PAGE.title}
+  description={`Alle Kanäle von ${SITE.name}: Twitch, Discord, YouTube und TikTok auf einen Blick.`}
+  bodyClass="links-page"
+>
+  <main id="inhalt" class="links">
+    <button class="share" type="button" hidden aria-label="Seite teilen">
+      <PixelIcon name="share" />
+    </button>
+
+    <div class="avatar" style={`--win:${px(WIN)}`}>
+      {
+        LINKS_PAGE.avatar ? (
+          <img src={url(LINKS_PAGE.avatar)} alt={SITE.name} width="160" height="160" />
+        ) : (
+          <div class="avatar-scene" aria-hidden="true">
+            <img src={url(MAP.layers.ground)} alt="" style={`left:${px(-wx)};top:${px(-wy)};width:${px(MAP.width)}`} />
+            <img
+              src={url(`/assets/buildings/${start.building}.png`)}
+              alt=""
+              style={`left:${px(studio.x - wx)};top:${px(studio.y - wy)};width:${px(studio.w)}`}
+            />
+            <div
+              class="avatar-hero"
+              style={`--src:url(${url(HERO.src)});left:${px(p.x - HERO.anchorX - wx)};top:${px(p.y - HERO.anchorY - wy)};width:${px(HERO.frameW)};height:${px(HERO.frameH)};background-size:${px(HERO.frameW * HERO.frames)} ${px(HERO.frameH * 4)}`}
+            >
+            </div>
+          </div>
+        )
+      }
+    </div>
+
+    <h1>{SITE.name}</h1>
+    <p class="greeting">{LINKS_PAGE.greeting}</p>
+
+    <ul class="link-list">
+      {
+        LINKS.map((l) => (
+          <li>
+            <a
+              class:list={['link-btn', { 'is-featured': l.featured }]}
+              href={url(l.href)}
+              {...(external(l.href) ? { target: '_blank', rel: 'noopener' } : {})}
+            >
+              <span class="link-icon">
+                <PixelIcon name={l.icon} />
+              </span>
+              <span class="link-text">
+                <strong>{l.label}</strong>
+                {l.sub && <small>{l.sub}</small>}
+              </span>
+              <span class="link-arrow" aria-hidden="true">
+                {external(l.href) ? '↗' : '→'}
+              </span>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+
+    <p class="links-legal">
+      <a href={url('/impressum')}>Impressum</a> · <a href={url('/datenschutz')}>Datenschutz</a>
+    </p>
+    <p class="share-status" role="status"></p>
+  </main>
+
+  <script>
+    // Teilen: natives Teilen-Menü am Handy, sonst Link kopieren
+    const btn = document.querySelector<HTMLButtonElement>('.share');
+    const status = document.querySelector<HTMLElement>('.share-status');
+    if (btn && (navigator.share || navigator.clipboard)) {
+      btn.hidden = false;
+      btn.addEventListener('click', async () => {
+        const url = location.href.split('#')[0];
+        try {
+          if (navigator.share) await navigator.share({ title: document.title, url });
+          else {
+            await navigator.clipboard.writeText(url);
+            if (status) status.textContent = 'Link kopiert!';
+            setTimeout(() => status && (status.textContent = ''), 2500);
+          }
+        } catch {
+          /* Teilen abgebrochen */
+        }
+      });
+    }
+  </script>
+</Base>

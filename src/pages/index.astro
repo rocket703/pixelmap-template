@@ -1,0 +1,130 @@
+---
+import { url } from '../lib/url';
+import Base from '../layouts/Base.astro';
+import SiteHeader from '../components/SiteHeader.astro';
+import SiteFooter from '../components/SiteFooter.astro';
+import Station from '../components/Station.astro';
+import { MAP, HERO, SCROLL, BUILDINGS, BUILDING_GAP, PATH_HALF, buildingBox } from '../data/map';
+import { EXIT, PATH, SITE, STATIONS } from '../data/stations';
+import { DOG, PARK, NPC_SPRITES } from '../data/npc';
+import '../styles/map.css';
+
+// Alle Haltepunkte: Stationen mit Inhalt + Tür am Ende des Wegs
+const stops = [...STATIONS, { ...EXIT, panel: 'right' as const }];
+
+// Nur die Daten, die das Skript braucht (Texte stehen bereits im HTML)
+const config = {
+  map: { width: MAP.width, height: MAP.height, zoom: MAP.zoom },
+  hero: {
+    speed: HERO.speed,
+    sprintFrom: HERO.sprintFrom,
+    sprintMax: HERO.sprintMax,
+    stride: HERO.stride,
+    anchorX: HERO.anchorX,
+    anchorY: HERO.anchorY,
+  },
+  scroll: SCROLL,
+  path: PATH,
+  stations: stops.map((s) => ({
+    id: s.id,
+    waypoint: s.waypoint,
+    panel: s.panel,
+    face: s.face ?? 'up',
+    halfW: BUILDINGS[s.building].w / 2,
+    h: BUILDINGS[s.building].h,
+  })),
+  gap: BUILDING_GAP,
+  pathHalf: PATH_HALF,
+};
+
+const buildings = stops.map((s) => ({
+  station: s,
+  box: buildingBox(s.building, PATH[s.waypoint]),
+  frames: BUILDINGS[s.building].frames ?? 1,
+}));
+
+// Hundeplatz: Bulldogge und Entenküken (Easter Egg, siehe src/data/npc.ts)
+const npcConfig = {
+  park: PARK,
+  dog: { walk: DOG.walk, run: DOG.run, anchorX: NPC_SPRITES.dog.anchorX, anchorY: NPC_SPRITES.dog.anchorY },
+  duck: { anchorX: NPC_SPRITES.duck.anchorX, anchorY: NPC_SPRITES.duck.anchorY },
+};
+const npcStyle = (key: keyof typeof NPC_SPRITES) => {
+  const sp = NPC_SPRITES[key];
+  return `--src:url(${url(sp.src)});--fw:${sp.frameW};--fh:${sp.frameH};--rows:${sp.rows}`;
+};
+
+const heroStyle = [
+  `--src:url(${url(HERO.src)})`,
+  `--fw:${HERO.frameW}`,
+  `--fh:${HERO.frameH}`,
+  `--frames:${HERO.frames}`,
+  `--walk-dur:${(HERO.stride / HERO.speed).toFixed(3)}s`,
+].join(';');
+---
+
+<Base bodyClass="map-page">
+  <SiteHeader onMap />
+
+  <div class="map" id="map" style={`--map-w:${MAP.width};--map-h:${MAP.height}`} aria-hidden="true">
+    <div class="world" id="world">
+      <img class="layer" src={url(MAP.layers.ground)} width={MAP.width} height={MAP.height} alt="" fetchpriority="high" />
+      <img class="layer" src={url(MAP.layers.objects)} width={MAP.width} height={MAP.height} alt="" />
+      {
+        /* Gebäude als Sprite-Sheet: Frame 0 normal, Frame 1 (falls vorhanden) bei Ankunft der Figur */
+        buildings.map(({ station: s, box, frames }) => (
+          <div
+            class="building"
+            data-building={s.id}
+            data-frames={frames}
+            style={`--src:url(${url(`/assets/buildings/${s.building}.png`)});--x:${box.x};--y:${box.y};--w:${box.w};--h:${box.h};--frames:${frames}`}
+          />
+        ))
+      }
+      <div class="park" id="park" style={`--x:${PARK.x};--y:${PARK.y};--w:${PARK.w};--h:${PARK.h}`}></div>
+      {Array.from({ length: PARK.ducks }, () => <span class="npc duck" style={npcStyle('duck')}></span>)}
+      <button class="npc dog" id="dog" type="button" tabindex="-1" title={`${DOG.name} anklicken`} style={npcStyle('dog')}></button>
+      <div class="hero" id="hero" style={heroStyle}></div>
+      <img class="layer" src={url(MAP.layers.canopy)} width={MAP.width} height={MAP.height} alt="" />
+      {
+        /* Schilder über den Gebäuden: Klick schickt die Figur hin (Tastatur nutzt die Navigation) */
+        buildings.map(({ station: s, box }) => (
+          <a class="sign" href={`#${s.id}`} data-nav={s.id} tabindex="-1" style={`--x:${box.x + box.w / 2};--y:${box.y}`}>
+            {s.nav}
+          </a>
+        ))
+      }
+    </div>
+  </div>
+
+  <!-- Zeigt an, wo die Figur gerade ist, wenn sie beim schnellen Scrollen aus dem Bild fällt -->
+  <div class="hero-hint" id="hero-hint" aria-hidden="true">
+    <span class="hero-hint-arrow"></span>{SITE.hero} läuft hinterher …
+  </div>
+
+  <main id="inhalt" class="stations">
+    {STATIONS.map((s, i) => <Station station={s} index={i} />)}
+  </main>
+
+  <!-- Easter Egg: erscheint beim Klick auf den Hund -->
+  <aside class="npc-card box" id="npc-card" hidden aria-labelledby="npc-card-title">
+    <button class="npc-card-close" type="button" aria-label="Schließen">×</button>
+    <p class="kicker">{DOG.kicker}</p>
+    <h2 id="npc-card-title">{DOG.name}</h2>
+    <p>{DOG.text}</p>
+    <ul>
+      {DOG.facts.map((f) => <li>{f}</li>)}
+    </ul>
+  </aside>
+
+  <SiteFooter />
+
+  <script is:inline type="application/json" id="map-config" set:html={JSON.stringify(config)} />
+  <script is:inline type="application/json" id="npc-config" set:html={JSON.stringify(npcConfig)} />
+  <script>
+    import { initMap } from '../scripts/map';
+    import { initNpc } from '../scripts/npc';
+    initMap();
+    initNpc();
+  </script>
+</Base>

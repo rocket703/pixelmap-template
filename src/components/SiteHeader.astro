@@ -1,0 +1,64 @@
+---
+import { url } from '../lib/url';
+import { SITE, SOCIALS, STATIONS } from '../data/stations';
+
+interface Props {
+  /** true auf der Map: Links springen per Anker (#id), sonst zurück zur Map (/#id) */
+  onMap?: boolean;
+  /** Station der aktuellen Unterseite (markiert den Nav-Punkt) */
+  current?: string;
+}
+const { onMap = false, current } = Astro.props;
+const href = (id: string) => (onMap ? `#${id}` : url(`/#${id}`));
+---
+
+<header class="site-header">
+  <a class="brand" href={onMap ? '#start' : url('/')}><span class="brand-heart" aria-hidden="true">♥</span> {SITE.name}</a>
+  <a class="btn btn-live" href={SOCIALS.twitch.href} rel="noopener" target="_blank">
+    <span class="live-dot" aria-hidden="true"></span>Twitch
+  </a>
+  <!-- Burger erst mit JavaScript; ohne JS bleibt die Navigation sichtbar -->
+  <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" hidden>
+    <span class="nav-toggle-bars" aria-hidden="true"></span>
+    <span class="visually-hidden">Menü</span>
+  </button>
+  <nav class="site-nav" id="site-nav" aria-label="Stationen">
+    <ul>
+      {
+        STATIONS.map((s) => (
+          <li>
+            <a href={href(s.id)} data-nav={s.id} aria-current={s.id === current ? 'page' : undefined}>
+              {s.nav}
+            </a>
+          </li>
+        ))
+      }
+      <li class="legal"><a href={url('/impressum')}>Impressum</a></li>
+      <li class="legal"><a href={url('/datenschutz')}>Datenschutz</a></li>
+    </ul>
+  </nav>
+</header>
+
+<script>
+  const toggle = document.querySelector<HTMLButtonElement>('.nav-toggle');
+  const nav = document.getElementById('site-nav');
+  if (toggle && nav) {
+    toggle.hidden = false;
+    const set = (open: boolean) => {
+      toggle.setAttribute('aria-expanded', String(open));
+      nav.classList.toggle('is-open', open);
+    };
+    toggle.addEventListener('click', () => set(toggle.getAttribute('aria-expanded') !== 'true'));
+    nav.addEventListener('click', (e) => (e.target as Element).closest('a') && set(false));
+    addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && nav.classList.contains('is-open')) {
+        set(false);
+        toggle.focus();
+      }
+    });
+    // Klick außerhalb schließt das Menü
+    addEventListener('click', (e) => {
+      if (!(e.target as Element).closest('.site-header')) set(false);
+    });
+  }
+</script>

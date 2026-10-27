@@ -1,0 +1,187 @@
+/* Linkseite /links: schmale Spalte, große Buttons, schnell auch im Instagram-Browser */
+
+.links-page {
+  min-height: 100dvh;
+  /* Feines Pixelraster + Leuchten in Markenfarbe */
+  background:
+    radial-gradient(60rem 30rem at 50% -10rem, color-mix(in srgb, var(--brand) 28%, transparent), transparent 70%),
+    radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--accent-2) 30%, transparent) 1px, transparent 1.5px) 0 0 / 16px 16px,
+    var(--bg);
+}
+
+.links {
+  position: relative;
+  max-width: 32rem;
+  margin: 0 auto;
+  padding: max(2.5rem, env(safe-area-inset-top)) 1rem max(2rem, env(safe-area-inset-bottom));
+  text-align: center;
+}
+
+.share {
+  position: absolute;
+  top: max(1rem, env(safe-area-inset-top));
+  right: 1rem;
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  color: var(--text);
+  background: var(--surface-2);
+  border: var(--px) solid var(--outline);
+  box-shadow: var(--px) var(--px) 0 0 var(--brand);
+  cursor: pointer;
+}
+
+.pixel-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+/* Avatar: Pixel-Rahmen wie die Infokarten */
+.avatar {
+  width: var(--win, 144px);
+  height: var(--win, 144px);
+  margin: 0 auto 1.25rem;
+  overflow: hidden;
+  background: var(--map-bg);
+  border: var(--px) solid var(--outline);
+  box-shadow:
+    inset 0 0 0 var(--px) var(--accent-2),
+    calc(var(--px) * 2) calc(var(--px) * 2) 0 0 var(--brand);
+}
+.avatar > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.avatar-scene {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+.avatar-scene img,
+.avatar-hero {
+  position: absolute;
+  max-width: none;
+  image-rendering: pixelated;
+}
+.avatar-hero {
+  background-image: var(--src);
+  animation: hop 2.4s steps(1) infinite;
+}
+@keyframes hop {
+  90% {
+    transform: translateY(-4px);
+  }
+}
+
+.links h1 {
+  margin: 0;
+  font-size: 2.2rem;
+}
+.greeting {
+  margin: 0.35rem 0 1.75rem;
+  color: var(--muted);
+  font-size: 1.05rem;
+}
+
+.link-list {
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.link-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  min-height: 4.25rem;
+  padding: 0.6rem 1rem 0.6rem 0.7rem;
+  color: var(--text);
+  text-align: left;
+  text-decoration: none;
+  background: var(--surface);
+  border: var(--px) solid var(--outline);
+  box-shadow:
+    inset 0 0 0 var(--px) var(--accent-2),
+    calc(var(--px) * 2) calc(var(--px) * 2) 0 0 var(--outline);
+}
+.link-btn:hover {
+  background: var(--surface-2);
+}
+.link-btn:active {
+  transform: translate(var(--px), var(--px));
+  box-shadow:
+    inset 0 0 0 var(--px) var(--accent-2),
+    var(--px) var(--px) 0 0 var(--outline);
+}
+.link-btn.is-featured {
+  background: var(--brand);
+  box-shadow:
+    inset calc(var(--px) * -1) calc(var(--px) * -1) 0 0 var(--brand-dark),
+    calc(var(--px) * 2) calc(var(--px) * 2) 0 0 var(--outline);
+}
+.link-btn.is-featured:hover {
+  filter: brightness(1.08);
+}
+
+.link-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  color: var(--accent);
+  background: var(--bg);
+  border: 2px solid var(--outline);
+}
+.is-featured .link-icon {
+  color: #fff;
+  background: var(--brand-dark);
+}
+
+.link-text {
+  flex: 1;
+  display: grid;
+  gap: 0.1rem;
+}
+.link-text strong {
+  font: 700 1.15rem/1.2 var(--font-heading);
+}
+.link-text small {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.is-featured .link-text small {
+  color: #fff;
+  opacity: 0.85;
+}
+.link-arrow {
+  font-family: var(--font-heading);
+  font-size: 1.2rem;
+}
+
+.links-legal {
+  margin: 2rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.links-legal a {
+  color: var(--muted);
+}
+.share-status {
+  min-height: 1.5em;
+  margin: 0.5rem 0 0;
+  font-family: var(--font-heading);
+  color: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .avatar-hero {
+    animation: none;
+  }
+}

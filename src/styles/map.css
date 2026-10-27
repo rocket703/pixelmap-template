@@ -1,0 +1,458 @@
+/* Map-Seite. Grundzustand = Seite ohne JavaScript (Inhalte untereinander, keine Map).
+   Mit JavaScript (html.js) wird daraus die begehbare Map, die mit der Seite scrollt. */
+
+.map,
+.hero-hint,
+.scroll-hint {
+  display: none;
+}
+.stations {
+  display: grid;
+  gap: 2rem;
+  max-width: 46rem;
+  margin: 2rem auto 3rem;
+  padding: 0 1rem;
+}
+.station h1,
+.station h2 {
+  font-size: 1.6rem;
+}
+.station p:last-child,
+.station ul:last-child {
+  margin-bottom: 0;
+}
+
+/* ------------------------------------------------------------ Map-Modus */
+
+.js .map-page {
+  position: relative;
+  background: var(--map-bg);
+}
+.js .map-page .site-header {
+  position: fixed;
+  left: 0;
+  right: 0;
+}
+
+/* Die Map liegt im normalen Seitenfluss und ist so hoch wie die skalierte Grafik */
+.js .map {
+  display: block;
+  position: relative;
+  height: calc(var(--map-h) * var(--s, 2) * 1px);
+  overflow: hidden;
+  background: var(--map-bg);
+}
+.js .world {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: calc(var(--map-w) * var(--s, 2) * 1px);
+  height: 100%;
+  will-change: transform;
+}
+.layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Alle Map-Objekte werden in Map-Pixeln (--x/--y) × Zoom (--s) positioniert */
+.building {
+  position: absolute;
+  left: calc(var(--x) * var(--s) * 1px);
+  top: calc(var(--y) * var(--s) * 1px);
+  width: calc(var(--w) * var(--s) * 1px);
+  height: calc(var(--h) * var(--s) * 1px);
+  background: var(--src) 0 0 / calc(var(--w) * var(--frames) * var(--s) * 1px) 100% no-repeat;
+  image-rendering: pixelated;
+  pointer-events: none;
+  transform-origin: 50% 100%;
+}
+.building[data-frames='2'].is-active {
+  background-position-x: calc(var(--w) * var(--s) * -1px);
+}
+/* Ankunft: Gebäude hüpft kurz */
+.building.is-active {
+  animation: arrive 0.45s steps(4);
+}
+@keyframes arrive {
+  40% {
+    transform: scaleY(1.06) translateY(calc(var(--s) * -2px));
+  }
+}
+
+/* Schild über dem Gebäude, Klick schickt die Figur hin */
+.sign {
+  position: absolute;
+  left: calc(var(--x) * var(--s) * 1px);
+  top: calc(var(--y) * var(--s) * 1px);
+  transform: translate(-50%, calc(-100% - 6px));
+  padding: 0.1rem 0.5rem 0.15rem;
+  font: 700 0.95rem/1.2 var(--font-heading);
+  color: var(--text);
+  white-space: nowrap;
+  text-decoration: none;
+  background: var(--surface);
+  border: 2px solid var(--outline);
+  box-shadow: 0 0 0 2px var(--accent-2);
+}
+.sign:hover,
+.sign[aria-current='true'] {
+  color: #fff;
+  background: var(--brand);
+}
+
+/* -------------------------------------------- Hundeplatz (NPCs) */
+
+/* Unsichtbarer Bereich: nur zum Erkennen, ob der Platz im Bild ist */
+.park {
+  position: absolute;
+  left: calc(var(--x) * var(--s) * 1px);
+  top: calc(var(--y) * var(--s) * 1px);
+  width: calc(var(--w) * var(--s) * 1px);
+  height: calc(var(--h) * var(--s) * 1px);
+  pointer-events: none;
+}
+
+/* NPC: Sprite-Sheet mit 4 Frames pro Zeile; Position (--nx/--ny, Map-Pixel) per CSS-Übergang */
+.npc {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: calc(var(--fw) * var(--s) * 1px);
+  height: calc(var(--fh) * var(--s) * 1px);
+  padding: 0;
+  border: 0;
+  background: var(--src) 0 calc(var(--row, 0) * var(--fh) * var(--s) * -1px) /
+    calc(var(--fw) * 4 * var(--s) * 1px) calc(var(--fh) * var(--rows) * var(--s) * 1px) no-repeat;
+  image-rendering: pixelated;
+  transform: translate(calc(var(--nx, 0) * var(--s) * 1px), calc(var(--ny, 0) * var(--s) * 1px));
+  transition-property: transform;
+  transition-timing-function: linear;
+  will-change: transform;
+  animation: npc-frames var(--frame-dur, 0.5s) steps(4) infinite;
+}
+@keyframes npc-frames {
+  from {
+    background-position-x: 0;
+  }
+  to {
+    background-position-x: calc(var(--fw) * 4 * var(--s) * -1px);
+  }
+}
+.npc[data-state='stand'],
+.npc[data-state='sleep'] {
+  animation: none;
+}
+.map.npc-paused .npc,
+.map.npc-paused .npc::after {
+  animation-play-state: paused;
+}
+
+/* Zeilen: Hund 0/1 laufen, 2/3 fressen, 4 schlafen – Enten 0/1 laufen, 2/3 schwimmen */
+.dog {
+  cursor: pointer;
+}
+.dog[data-dir='left'] {
+  --row: 1;
+}
+.dog[data-state='run'] {
+  --frame-dur: 0.28s;
+}
+.dog[data-state='eat'] {
+  --row: 2;
+  --frame-dur: 0.9s;
+}
+.dog[data-state='eat'][data-dir='left'] {
+  --row: 3;
+}
+.dog[data-state='sleep'] {
+  --row: 4;
+}
+.dog:hover {
+  filter: drop-shadow(0 0 calc(var(--s) * 1px) #fff);
+}
+.duck {
+  pointer-events: none;
+  --frame-dur: 0.4s;
+}
+.duck[data-dir='left'] {
+  --row: 1;
+}
+.duck[data-state='swim'] {
+  --row: 2;
+  --frame-dur: 1.2s;
+}
+.duck[data-state='swim'][data-dir='left'] {
+  --row: 3;
+}
+
+/* Sprechblasen über dem Hund: zzz, !, ♥ */
+.dog::after {
+  position: absolute;
+  left: 60%;
+  bottom: 85%;
+  font: 700 calc(var(--s) * 5px) / 1 var(--font-heading);
+  color: #fff;
+  text-shadow:
+    0 2px 0 var(--outline),
+    2px 0 0 var(--outline),
+    -2px 0 0 var(--outline),
+    0 -2px 0 var(--outline);
+  pointer-events: none;
+}
+.dog[data-state='sleep']::after {
+  content: 'z';
+  animation: zzz 2.4s steps(6) infinite;
+}
+.dog.is-alert::after {
+  content: '!';
+  color: var(--live);
+  animation: none;
+}
+.dog.is-happy::after {
+  content: '♥';
+  color: var(--brand);
+  animation: none;
+}
+@keyframes zzz {
+  0% {
+    opacity: 0;
+    translate: 0 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    translate: calc(var(--s) * 3px) calc(var(--s) * -6px);
+  }
+}
+
+/* Infokarte zum Hund (Easter Egg) */
+.npc-card {
+  position: absolute;
+  z-index: 24;
+  width: min(20rem, calc(100vw - 2rem));
+}
+.npc-card h2 {
+  font-size: 1.5rem;
+}
+.npc-card ul {
+  margin-bottom: 0;
+}
+.npc-card-close {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.5rem;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  font: 700 1.5rem/1 var(--font-heading);
+  color: var(--text);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+/* Figur: Sprite-Sheet, Zeile = Richtung (--row), Laufen per steps() über die Spalten */
+.hero {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: calc(var(--fw) * var(--s) * 1px);
+  height: calc(var(--fh) * var(--s) * 1px);
+  background: var(--src) 0 calc(var(--row, 0) * var(--fh) * var(--s) * -1px) /
+    calc(var(--fw) * var(--frames) * var(--s) * 1px) calc(var(--fh) * 4 * var(--s) * 1px);
+  image-rendering: pixelated;
+  will-change: transform;
+  visibility: hidden;
+}
+.map.is-ready .hero {
+  visibility: visible;
+}
+.hero.is-walking {
+  /* Beim Sprint (--pace) laufen die Beine entsprechend schneller */
+  animation: hero-walk calc(var(--walk-dur) / var(--pace, 1)) steps(var(--frames)) infinite;
+}
+@keyframes hero-walk {
+  from {
+    background-position-x: 0;
+  }
+  to {
+    background-position-x: calc(var(--fw) * var(--frames) * var(--s) * -1px);
+  }
+}
+
+/* Hinweis am Bildrand: Figur ist gerade außerhalb des Bildes */
+.js .hero-hint {
+  position: fixed;
+  z-index: 25;
+  left: var(--hint-x, 50%);
+  display: none;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.6rem 0.3rem;
+  font: 700 0.9rem/1.2 var(--font-heading);
+  color: var(--text);
+  white-space: nowrap;
+  background: var(--surface);
+  border: 2px solid var(--outline);
+  box-shadow: 0 0 0 2px var(--brand);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.js .hero-hint[data-dir='up'] {
+  display: flex;
+  top: calc(var(--header-h) + 0.6rem);
+}
+.js .hero-hint[data-dir='down'] {
+  display: flex;
+  bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+.hero-hint-arrow::before {
+  color: var(--brand);
+  animation: blink 0.8s steps(2) infinite;
+}
+[data-dir='up'] .hero-hint-arrow::before {
+  content: '▲';
+}
+[data-dir='down'] .hero-hint-arrow::before {
+  content: '▼';
+}
+
+/* Inhaltsfenster: liegen über der Map und scrollen mit; JS setzt die Position neben der Station */
+.js .stations {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 0;
+  z-index: 20;
+  display: block;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  pointer-events: none;
+}
+.js .station {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: min(23rem, calc(50vw - 4rem));
+  opacity: 0;
+  transform: scale(0.92);
+  transition:
+    opacity 0.2s,
+    transform 0.2s steps(3);
+}
+.js .station.is-active {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+/* Sprechblasen-Pfeil zum Gebäude: gestuftes Dreieck im Pixelraster (Rahmen + Füllung) */
+.js .station::before,
+.js .station::after {
+  content: '';
+  position: absolute;
+  top: var(--tail-y, 50%);
+  clip-path: polygon(100% 0, 75% 0, 75% 12.5%, 50% 12.5%, 50% 25%, 25% 25%, 25% 37.5%, 0 37.5%, 0 62.5%, 25% 62.5%, 25% 75%, 50% 75%, 50% 87.5%, 75% 87.5%, 75% 100%, 100% 100%);
+}
+.js .station::before {
+  width: 28px;
+  height: 48px;
+  margin-top: -24px;
+  background: var(--outline);
+}
+.js .station::after {
+  width: 22px;
+  height: 36px;
+  margin-top: -18px;
+  background: var(--accent-2);
+}
+.js .station[data-tail='left']::before {
+  left: -27px;
+}
+.js .station[data-tail='left']::after {
+  left: -18px;
+}
+.js .station[data-tail='right']::before,
+.js .station[data-tail='right']::after {
+  transform: scaleX(-1);
+}
+.js .station[data-tail='right']::before {
+  right: -27px;
+}
+.js .station[data-tail='right']::after {
+  right: -18px;
+}
+.js .station:not([data-tail])::before,
+.js .station:not([data-tail])::after {
+  display: none;
+}
+
+.js .scroll-hint {
+  display: block;
+  margin: 1rem 0 0;
+  font-family: var(--font-heading);
+  color: var(--accent);
+  animation: blink 1.2s steps(2) infinite;
+}
+
+/* Handy: Inhaltsfenster als Leiste unten */
+@media (max-width: 700px) {
+  .js .station {
+    position: fixed;
+    top: auto;
+    left: 0.75rem;
+    right: 0.75rem;
+    bottom: max(0.75rem, env(safe-area-inset-bottom));
+    width: auto;
+    max-height: 55dvh;
+    overflow: auto;
+    translate: none !important;
+    padding: 0.9rem 1rem 1rem;
+    transform: translateY(1rem);
+  }
+  .js .station.is-active {
+    transform: none;
+  }
+  .js .station::before,
+  .js .station::after {
+    display: none;
+  }
+  .js .station h1,
+  .js .station h2 {
+    font-size: 1.3rem;
+  }
+  .js .station ul {
+    margin: 0.5rem 0 0.75rem;
+  }
+  .js .station .actions {
+    margin-top: 0.75rem;
+  }
+  .sign {
+    font-size: 0.8rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero.is-walking,
+  .building.is-active,
+  .npc,
+  .dog::after,
+  .hero-hint-arrow::before,
+  .js .scroll-hint {
+    animation: none;
+  }
+  .js .station {
+    transition: none;
+  }
+}
