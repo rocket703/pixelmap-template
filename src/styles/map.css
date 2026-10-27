@@ -34,6 +34,37 @@
   right: 0;
 }
 
+/* Zwei Maps: Desktop (--d…) und Handy (--m…, Media-Query wie MOBILE_QUERY in src/data/layouts.ts).
+   Größen und Positionen stehen für beide im HTML, hier wird die passende ausgewählt. */
+.map {
+  --map-w: var(--dmap-w);
+  --map-h: var(--dmap-h);
+}
+.building,
+.sign,
+.park {
+  --x: var(--dx);
+  --y: var(--dy);
+}
+.park {
+  --w: var(--dw);
+}
+@media (max-width: 700px) {
+  .map {
+    --map-w: var(--mmap-w);
+    --map-h: var(--mmap-h);
+  }
+  .building,
+  .sign,
+  .park {
+    --x: var(--mx);
+    --y: var(--my);
+  }
+  .park {
+    --w: var(--mw);
+  }
+}
+
 /* Die Map liegt im normalen Seitenfluss und ist so hoch wie die skalierte Grafik */
 .js .map {
   display: block;

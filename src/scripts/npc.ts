@@ -16,17 +16,21 @@ interface Pt {
   y: number;
 }
 
+interface Park {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  bed: Pt;
+  bowls: Pt;
+  pond: { cx: number; cy: number; rx: number; ry: number };
+  duckSpeed: number;
+}
+
 interface NpcConfig {
-  park: {
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-    bed: Pt;
-    bowls: Pt;
-    pond: { cx: number; cy: number; rx: number; ry: number };
-    duckSpeed: number;
-  };
+  /** Media-Query für die Handy-Map; je Map liegt der Platz woanders */
+  mobileQuery: string;
+  parks: { desktop: Park; mobile: Park };
   dog: { walk: number; run: number; anchorX: number; anchorY: number };
   duck: { anchorX: number; anchorY: number };
 }
@@ -111,21 +115,21 @@ export function initNpc() {
   if (!cfgEl || !mapEl || !parkEl || !dogEl || !card) return;
 
   const cfg: NpcConfig = JSON.parse(cfgEl.textContent ?? '{}');
-  const { park } = cfg;
-  const { pond } = park;
+  const mobileQ = matchMedia(cfg.mobileQuery);
+  let park = mobileQ.matches ? cfg.parks.mobile : cfg.parks.desktop;
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   /* Geometrie */
-  const inPond = (p: Pt, margin = 0) => ((p.x - pond.cx) / (pond.rx + margin)) ** 2 + ((p.y - pond.cy) / (pond.ry + margin)) ** 2 <= 1;
+  const inPond = (p: Pt, margin = 0) => ((p.x - park.pond.cx) / (park.pond.rx + margin)) ** 2 + ((p.y - park.pond.cy) / (park.pond.ry + margin)) ** 2 <= 1;
   const pondPoint = (): Pt => {
     const a = rand(0, Math.PI * 2);
     const r = Math.sqrt(Math.random()) * 0.6;
-    return { x: pond.cx + Math.cos(a) * pond.rx * r, y: pond.cy + 3 + Math.sin(a) * pond.ry * r };
+    return { x: park.pond.cx + Math.cos(a) * park.pond.rx * r, y: park.pond.cy + 3 + Math.sin(a) * park.pond.ry * r };
   };
   /** Uferpunkt in Richtung von p */
   const shore = (p: Pt, margin = 5): Pt => {
-    const a = Math.atan2((p.y - pond.cy) / pond.ry, (p.x - pond.cx) / pond.rx);
-    return { x: pond.cx + Math.cos(a) * (pond.rx + margin), y: pond.cy + Math.sin(a) * (pond.ry + margin) };
+    const a = Math.atan2((p.y - park.pond.cy) / park.pond.ry, (p.x - park.pond.cx) / park.pond.rx);
+    return { x: park.pond.cx + Math.cos(a) * (park.pond.rx + margin), y: park.pond.cy + Math.sin(a) * (park.pond.ry + margin) };
   };
   const landPoint = (near?: Pt, radius = 30): Pt => {
     for (let i = 0; i < 30; i++) {
@@ -149,6 +153,20 @@ export function initNpc() {
     d.set(d.swimming ? 'swim' : 'stand', i % 2 ? 'left' : 'right');
     return d;
   });
+
+  /** Anderer Platz (Wechsel Desktop ↔ Handy-Map): alle sofort dorthin setzen */
+  function moveToPark() {
+    park = mobileQ.matches ? cfg.parks.mobile : cfg.parks.desktop;
+    dog.place(park.bed.x, park.bed.y, 0);
+    dog.set('sleep');
+    ducks.forEach((d) => {
+      const p = pondPoint();
+      d.place(p.x, p.y, 0);
+      d.swimming = true;
+      d.set('swim');
+    });
+  }
+  mobileQ.addEventListener('change', moveToPark);
 
   setupCard();
   if (reduced) return;
@@ -204,7 +222,7 @@ export function initNpc() {
     // Am Ufer stehen bleiben und verdutzt gucken
     const s = shore(dog, 7);
     await dog.go(s.x, s.y, cfg.dog.run, 'run');
-    dog.set('stand', pond.cx < dog.x ? 'left' : 'right');
+    dog.set('stand', park.pond.cx < dog.x ? 'left' : 'right');
     await wait(rand(1500, 2500));
   }
 

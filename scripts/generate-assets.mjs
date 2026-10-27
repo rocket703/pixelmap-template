@@ -11,13 +11,20 @@ import { deflateSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { MAP, HERO, BUILDINGS, PATH_HALF, buildingBox } from '../src/data/map.ts';
-import { PATH, STATIONS, EXIT } from '../src/data/stations.ts';
-import { PARK, NPC_SPRITES } from '../src/data/npc.ts';
+import { NPC_SPRITES } from '../src/data/npc.ts';
+import { LAYOUTS, STOPS as STOP_LIST } from '../src/data/layouts.ts';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'public/assets');
-const W = MAP.width;
-const H = MAP.height;
+// Welche Map? `npm run assets` erzeugt beide: Desktop und (mit --mobile) die Handy-Map
+const KEY = process.argv.includes('--mobile') ? 'mobile' : 'desktop';
+const L = LAYOUTS[KEY];
+const W = L.width;
+const H = L.height;
+const PATH = L.path;
+const PARK = L.park;
+const STOPS = STOP_LIST.map((s, i) => ({ ...s, waypoint: L.waypoints[i] }));
+const STATIONS = STOPS.slice(0, -1);
 
 /* ------------------------------------------------------------------ PNG */
 
@@ -278,7 +285,6 @@ function text(img, s, x, y, col, k = 1) {
 
 // Weg inkl. Einstieg vom linken Kartenrand; er endet an der Tür (EXIT)
 const ROAD = [{ x: 0, y: PATH[0].y }, ...PATH];
-const STOPS = [...STATIONS, EXIT];
 
 for (let i = 1; i < PATH.length; i++)
   if (PATH[i].y < PATH[i - 1].y)
@@ -1131,11 +1137,16 @@ function ogImage(ground, sprites, hero) {
 
 /* -------------------------------------------------------------- Export */
 
-console.log('Erzeuge Assets …');
+console.log(`Erzeuge Assets (${KEY}) …`);
 const ground = buildGround();
-ground.save(join(OUT, 'map/ground.png'));
-objects.save(join(OUT, 'map/objects.png'));
-canopy.save(join(OUT, 'map/canopy.png'));
+ground.save(join(ROOT, 'public', L.layers.ground));
+objects.save(join(ROOT, 'public', L.layers.objects));
+canopy.save(join(ROOT, 'public', L.layers.canopy));
+if (KEY === 'mobile') {
+  console.log('Fertig.');
+  process.exit(0);
+}
+// Gebäude, Figuren und Vorschaubild sind für beide Maps gleich – nur einmal erzeugen
 const sprites = {};
 for (const type of Object.keys(BUILDINGS)) {
   sprites[type] = buildingSprite(type);

@@ -63,6 +63,20 @@ Barrierefreiheit und Fallbacks:
   Figur sofort dorthin. Das Burger-Menü schließt mit Esc.
 - **Handy:** Navigation als Burger-Menü (ab 1000 px Breite abwärts), Twitch-Button bleibt sichtbar.
 
+## Zwei Maps: Desktop und Handy
+
+Bis 700 px Bildschirmbreite (`MOBILE_QUERY` in `src/data/layouts.ts`) zeigt die Seite eine eigene,
+schmale Handy-Map: Alle Gebäude stehen mittig untereinander, man scrollt nur gerade nach unten.
+Zwischen zwei Gebäuden schwenkt der Weg zur Seite aus dem Bild (die Figur läuft mit hinaus und
+kommt weiter unten wieder herein). Die Kamera bewegt sich dort nicht seitlich.
+
+- Die Handy-Map wird **automatisch** aus der Reihenfolge der Stationen berechnet – eine neue Station
+  erscheint dort von selbst. Zu welcher Seite der Weg nach jeder Station ausschwenkt, steht in
+  `SIDES`, Abstände und Breite in `M` (beides `src/data/layouts.ts`).
+- Der Browser lädt per `<picture>` nur die Ebenen der passenden Map. Dreht man das Handy über die
+  Grenze, wechselt die Map, die Figur bleibt an ihrer Station.
+- Der Hundeplatz liegt auf beiden Maps zwischen Start und erster Station (`parkAt(...)`).
+
 ## Stationen ändern oder ergänzen
 
 Alles steht in `src/data/stations.ts`:
@@ -88,7 +102,7 @@ Alles steht in `src/data/stations.ts`:
    beim vorigen Punkt), `x` darf hin und her. Waagerecht/senkrecht sieht mit 4 Laufrichtungen am besten aus.
 2. Station in `STATIONS` eintragen; `waypoint` zeigt auf einen waagerechten Wegabschnitt, über dem
    Platz für das Gebäude ist.
-3. `npm run assets` – zeichnet Weg, Deko und Map-Höhe neu und **prüft**, dass der Weg nur nach unten
+3. `npm run assets` – zeichnet beide Maps (Weg, Deko, Höhe) neu und **prüft**, dass der Weg nur nach unten
    führt und kein Gebäude auf dem Weg oder einem anderen Gebäude steht (sonst klare Fehlermeldung).
 
 Die **Reihenfolge** im Array ist die Reihenfolge beim Scrollen; die `waypoint`-Indizes müssen aufsteigen.

@@ -5,16 +5,21 @@ import SiteHeader from '../components/SiteHeader.astro';
 import SiteFooter from '../components/SiteFooter.astro';
 import Station from '../components/Station.astro';
 import { MAP, HERO, SCROLL, BUILDINGS, BUILDING_GAP, PATH_HALF, buildingBox } from '../data/map';
-import { EXIT, PATH, SITE, STATIONS } from '../data/stations';
-import { DOG, PARK, NPC_SPRITES } from '../data/npc';
+import { SITE, STATIONS } from '../data/stations';
+import { DOG, NPC_SPRITES } from '../data/npc';
+import { LAYOUTS, MOBILE_QUERY, STOPS } from '../data/layouts';
 import '../styles/map.css';
 
-// Alle Haltepunkte: Stationen mit Inhalt + Tür am Ende des Wegs
-const stops = [...STATIONS, { ...EXIT, panel: 'right' as const }];
+// Zwei Maps (src/data/layouts.ts): Desktop und Handy. CSS und Skript wählen per MOBILE_QUERY.
+const D = LAYOUTS.desktop;
+const M = LAYOUTS.mobile;
+const mapCfg = (L: typeof D) => ({ width: L.width, height: L.height, path: L.path, waypoints: L.waypoints });
 
 // Nur die Daten, die das Skript braucht (Texte stehen bereits im HTML)
 const config = {
-  map: { width: MAP.width, height: MAP.height, zoom: MAP.zoom },
+  zoom: MAP.zoom,
+  mobileQuery: MOBILE_QUERY,
+  layouts: { desktop: mapCfg(D), mobile: mapCfg(M) },
   hero: {
     speed: HERO.speed,
     sprintFrom: HERO.sprintFrom,
@@ -24,11 +29,9 @@ const config = {
     anchorY: HERO.anchorY,
   },
   scroll: SCROLL,
-  path: PATH,
-  stations: stops.map((s) => ({
+  stations: STOPS.map((s) => ({
     id: s.id,
-    waypoint: s.waypoint,
-    panel: s.panel,
+    panel: 'panel' in s ? s.panel : 'right',
     face: s.face ?? 'up',
     halfW: BUILDINGS[s.building].w / 2,
     h: BUILDINGS[s.building].h,
@@ -37,15 +40,19 @@ const config = {
   pathHalf: PATH_HALF,
 };
 
-const buildings = stops.map((s) => ({
+// Gebäude und Schilder bekommen beide Positionen (--dx/--dy Desktop, --mx/--my Handy)
+const buildings = STOPS.map((s, i) => ({
   station: s,
-  box: buildingBox(s.building, PATH[s.waypoint]),
+  d: buildingBox(s.building, D.path[D.waypoints[i]]),
+  m: buildingBox(s.building, M.path[M.waypoints[i]]),
   frames: BUILDINGS[s.building].frames ?? 1,
 }));
+const parkStyle = `--dx:${D.park.x};--dy:${D.park.y};--dw:${D.park.w};--mx:${M.park.x};--my:${M.park.y};--mw:${M.park.w};--h:${D.park.h}`;
 
 // Hundeplatz: Bulldogge und Entenküken (Easter Egg, siehe src/data/npc.ts)
 const npcConfig = {
-  park: PARK,
+  mobileQuery: MOBILE_QUERY,
+  parks: { desktop: D.park, mobile: M.park },
   dog: { walk: DOG.walk, run: DOG.run, anchorX: NPC_SPRITES.dog.anchorX, anchorY: NPC_SPRITES.dog.anchorY },
   duck: { anchorX: NPC_SPRITES.duck.anchorX, anchorY: NPC_SPRITES.duck.anchorY },
 };
@@ -66,30 +73,51 @@ const heroStyle = [
 <Base bodyClass="map-page">
   <SiteHeader onMap />
 
-  <div class="map" id="map" style={`--map-w:${MAP.width};--map-h:${MAP.height}`} aria-hidden="true">
+  <div
+    class="map"
+    id="map"
+    style={`--dmap-w:${D.width};--dmap-h:${D.height};--mmap-w:${M.width};--mmap-h:${M.height}`}
+    aria-hidden="true"
+  >
     <div class="world" id="world">
-      <img class="layer" src={url(MAP.layers.ground)} width={MAP.width} height={MAP.height} alt="" fetchpriority="high" />
-      <img class="layer" src={url(MAP.layers.objects)} width={MAP.width} height={MAP.height} alt="" />
+      <!-- <picture>: der Browser lädt nur die Ebenen der passenden Map -->
+      <picture>
+        <source media={MOBILE_QUERY} srcset={url(M.layers.ground)} width={M.width} height={M.height} />
+        <img class="layer" src={url(D.layers.ground)} width={D.width} height={D.height} alt="" fetchpriority="high" />
+      </picture>
+      <picture>
+        <source media={MOBILE_QUERY} srcset={url(M.layers.objects)} width={M.width} height={M.height} />
+        <img class="layer" src={url(D.layers.objects)} width={D.width} height={D.height} alt="" />
+      </picture>
       {
         /* Gebäude als Sprite-Sheet: Frame 0 normal, Frame 1 (falls vorhanden) bei Ankunft der Figur */
-        buildings.map(({ station: s, box, frames }) => (
+        buildings.map(({ station: s, d, m, frames }) => (
           <div
             class="building"
             data-building={s.id}
             data-frames={frames}
-            style={`--src:url(${url(`/assets/buildings/${s.building}.png`)});--x:${box.x};--y:${box.y};--w:${box.w};--h:${box.h};--frames:${frames}`}
+            style={`--src:url(${url(`/assets/buildings/${s.building}.png`)});--dx:${d.x};--dy:${d.y};--mx:${m.x};--my:${m.y};--w:${d.w};--h:${d.h};--frames:${frames}`}
           />
         ))
       }
-      <div class="park" id="park" style={`--x:${PARK.x};--y:${PARK.y};--w:${PARK.w};--h:${PARK.h}`}></div>
-      {Array.from({ length: PARK.ducks }, () => <span class="npc duck" style={npcStyle('duck')}></span>)}
+      <div class="park" id="park" style={parkStyle}></div>
+      {Array.from({ length: D.park.ducks }, () => <span class="npc duck" style={npcStyle('duck')}></span>)}
       <button class="npc dog" id="dog" type="button" tabindex="-1" title={`${DOG.name} anklicken`} style={npcStyle('dog')}></button>
       <div class="hero" id="hero" style={heroStyle}></div>
-      <img class="layer" src={url(MAP.layers.canopy)} width={MAP.width} height={MAP.height} alt="" />
+      <picture>
+        <source media={MOBILE_QUERY} srcset={url(M.layers.canopy)} width={M.width} height={M.height} />
+        <img class="layer" src={url(D.layers.canopy)} width={D.width} height={D.height} alt="" />
+      </picture>
       {
         /* Schilder über den Gebäuden: Klick schickt die Figur hin (Tastatur nutzt die Navigation) */
-        buildings.map(({ station: s, box }) => (
-          <a class="sign" href={`#${s.id}`} data-nav={s.id} tabindex="-1" style={`--x:${box.x + box.w / 2};--y:${box.y}`}>
+        buildings.map(({ station: s, d, m }) => (
+          <a
+            class="sign"
+            href={`#${s.id}`}
+            data-nav={s.id}
+            tabindex="-1"
+            style={`--dx:${d.x + d.w / 2};--dy:${d.y};--mx:${m.x + m.w / 2};--my:${m.y}`}
+          >
             {s.nav}
           </a>
         ))

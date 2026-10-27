@@ -7,7 +7,7 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "assets": "node scripts/generate-assets.mjs",
+    "assets": "node scripts/generate-assets.mjs && node scripts/generate-assets.mjs --mobile",
     "astro": "astro"
   },
   "dependencies": {

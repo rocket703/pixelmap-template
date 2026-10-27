@@ -1,6 +1,6 @@
 /**
  * Hundeplatz mit NPCs: Französische Bulldogge (Mochi) und Entenküken laufen frei herum (Easter Egg).
- * Alle Koordinaten in Map-Pixeln. Der Platz (PARK) bleibt beim Erzeugen der Grafik frei von
+ * Alle Koordinaten in Map-Pixeln. Der Platz bleibt beim Erzeugen der Grafik frei von
  * Bäumen und Deko; Körbchen, Näpfe und Teich zeichnet `npm run assets` hinein.
  */
 
@@ -14,21 +14,19 @@ export const DOG = {
   run: 64,
 };
 
-export const PARK = {
-  /**
-   * Freier Bereich, in dem sich Hund und Enten bewegen. Liegt zwischen zwei Wegabschnitten, wo
-   * keine Infokarte aufgeht (sonst wäre der Hund verdeckt und nicht anklickbar).
-   */
-  x: 130,
-  y: 164,
-  w: 173,
+/**
+ * Form des Hundeplatzes (Körbchen, Näpfe, Teich relativ zur linken oberen Ecke).
+ * Wo der Platz liegt, steht je Map in src/data/layouts.ts. Er darf nicht dort liegen, wo eine
+ * Infokarte aufgeht (sonst wäre der Hund verdeckt und nicht anklickbar).
+ */
+export const PARK_SHAPE = {
   h: 58,
   /** Mitte des Körbchens (dort schläft sie) */
-  bed: { x: 148, y: 211 },
+  bed: { dx: 18, dy: 47 },
   /** Linker Napf (Futter), rechts daneben Wasser */
-  bowls: { x: 170, y: 215 },
-  /** Teich für die Enten */
-  pond: { cx: 274, cy: 186, rx: 18, ry: 9 },
+  bowls: { dx: 40, dy: 51 },
+  /** Teich für die Enten; dxRight = Abstand der Teichmitte vom rechten Rand */
+  pond: { dxRight: 29, dy: 22, rx: 18, ry: 9 },
   ducks: 3,
   duckSpeed: 14,
 };

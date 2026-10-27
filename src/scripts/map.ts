@@ -5,20 +5,32 @@
  * 1. Scroll legt nur das ZIEL fest (targetS = Pfadlänge in Map-Pixeln, Station etwa in Bildmitte).
  * 2. Die Figur läuft pro Frame höchstens HERO.speed · dt Richtung Ziel (heroS).
  *    Scrollt man schneller, fällt sie aus dem Bild und läuft danach wieder hinein.
- * 3. Senkrecht ist die Kamera der Scroll, waagerecht folgt sie dem Ziel (schmale Bildschirme).
+ * 3. Senkrecht ist die Kamera der Scroll, waagerecht folgt sie dem Ziel (Desktop-Map).
+ *    Auf der Handy-Map steht sie waagerecht still – die Gebäude stehen untereinander,
+ *    der Weg schwenkt zwischen ihnen seitlich aus dem Bild.
  * 4. Steht die Figur an einer Station, wird deren <section> eingeblendet.
  */
 import { createPath, pointAt, type Point } from '../lib/path';
 
 type Facing = 'down' | 'left' | 'right' | 'up';
 
+interface LayoutConfig {
+  width: number;
+  height: number;
+  path: Point[];
+  /** Wegpunkt-Index je Haltepunkt */
+  waypoints: number[];
+}
+
 interface MapConfig {
-  map: { width: number; height: number; zoom: { min: number; max: number; viewSpan: number } };
+  zoom: { min: number; max: number; viewSpan: number };
+  /** Media-Query für die Handy-Map */
+  mobileQuery: string;
+  layouts: { desktop: LayoutConfig; mobile: LayoutConfig };
   hero: { speed: number; sprintFrom: number; sprintMax: number; stride: number; anchorX: number; anchorY: number };
   scroll: { hold: number; snap: boolean; magnet: boolean; focus: number; focusMobile: number };
-  path: Point[];
   /** halfW/h: halbe Breite und Höhe des Gebäudes in Map-Pixeln (Inhaltsfenster steht daneben) */
-  stations: { id: string; waypoint: number; panel: 'left' | 'right'; face: Facing; halfW: number; h: number }[];
+  stations: { id: string; panel: 'left' | 'right'; face: Facing; halfW: number; h: number }[];
   /** Abstand Unterkante Gebäude → Wegmitte, halbe Wegbreite */
   gap: number;
   pathHalf: number;
@@ -43,16 +55,28 @@ export function initMap() {
   const navLinks = [...document.querySelectorAll<HTMLAnchorElement>('[data-nav]')];
   const buildings = [...document.querySelectorAll<HTMLElement>('[data-building]')];
 
-  const path = createPath(cfg.path);
-  const stationS = cfg.stations.map((s) => path.cum[s.waypoint]);
-  const stationY = cfg.stations.map((s) => cfg.path[s.waypoint].y);
-  const segs = stationS.length - 1;
+  const segs = cfg.stations.length - 1;
   const ids = cfg.stations.map((s) => s.id);
   // Inhaltsfenster je Haltepunkt (die Tür am Ende hat keins)
   const panels = ids.map((id) => document.querySelector<HTMLElement>(`.station#${CSS.escape(id)}`));
 
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
-  const mobile = matchMedia('(max-width: 700px)');
+  const mobile = matchMedia(cfg.mobileQuery);
+
+  /* Aktive Map (Desktop/Handy) – wechselt, wenn die Bildschirmbreite die Grenze überschreitet */
+  let L = cfg.layouts.desktop;
+  let path = createPath(L.path);
+  let stationS: number[] = [];
+  let stationY: number[] = [];
+  function applyLayout() {
+    L = mobile.matches ? cfg.layouts.mobile : cfg.layouts.desktop;
+    path = createPath(L.path);
+    stationS = L.waypoints.map((w) => path.cum[w]);
+    stationY = L.waypoints.map((w) => L.path[w].y);
+  }
+  applyLayout();
+  /** Wegpunkt der Station i auf der aktiven Map */
+  const stationPoint = (i: number) => L.path[L.waypoints[i]];
 
   let scale = 2;
   let vw = 0;
@@ -117,7 +141,8 @@ export function initMap() {
     vh = innerHeight;
     headerH = header?.offsetHeight ?? 0;
     signH = document.querySelector<HTMLElement>('.sign')?.offsetHeight ?? 24;
-    const { width, zoom } = cfg.map;
+    const { zoom } = cfg;
+    const { width } = L;
     // Ganzzahliger Zoom (scharfe Pixel); die Map muss die Bildschirmbreite immer füllen
     const wish = clamp(Math.floor(Math.min(vw, vh) / zoom.viewSpan), zoom.min, zoom.max);
     scale = Math.max(wish, Math.ceil(vw / width));
@@ -180,14 +205,15 @@ export function initMap() {
     hero!.classList.toggle('is-walking', walking && !reduced.matches);
   }
 
-  /** Waagerecht: Ziel mittig halten (nur wenn die Map breiter als der Bildschirm ist) */
+  /** Waagerecht: Ziel mittig halten (Desktop-Map); Handy-Map: fest in der Mitte */
   function updateCamera(dt: number) {
-    const worldW = cfg.map.width * scale;
+    const worldW = L.width * scale;
     const goal = pointAt(path, targetS);
     // Auf dem Desktop etwas Platz auf der Seite des Inhaltsfensters lassen
     const st = stationAt(targetS);
     const bias = st >= 0 && !mobile.matches ? (cfg.stations[st].panel === 'right' ? 1 : -1) * Math.min(vw * 0.14, 200) : 0;
-    const tx = worldW <= vw ? (worldW - vw) / 2 : clamp(goal.x * scale - vw / 2 + bias, 0, worldW - vw);
+    const tx =
+      worldW <= vw || mobile.matches ? (worldW - vw) / 2 : clamp(goal.x * scale - vw / 2 + bias, 0, worldW - vw);
 
     const k = snapCamera || reduced.matches ? 1 : 1 - Math.exp(-dt * 5);
     snapCamera = false;
@@ -235,7 +261,7 @@ export function initMap() {
     }
     panel.style.maxHeight = '';
     const station = cfg.stations[active];
-    const st = cfg.path[station.waypoint];
+    const st = stationPoint(active);
     const w = panel.offsetWidth;
     const h = panel.offsetHeight;
     const sx = st.x * scale - camX;
@@ -344,10 +370,11 @@ export function initMap() {
   let resizeTimer = 0;
   addEventListener('resize', () => {
     const keep = active >= 0 ? active : Math.round(progress());
-    const before = { scale, vw };
+    const before = { scale, vw, L };
+    applyLayout(); // ggf. Wechsel Desktop ↔ Handy-Map (z. B. beim Drehen)
     layout();
     // Handy-Adressleiste ändert nur die Höhe: einfach weiterlaufen
-    if (scale === before.scale && vw === before.vw) {
+    if (scale === before.scale && vw === before.vw && L === before.L) {
       targetS = targetFromScroll();
       wake();
       return;
@@ -373,7 +400,9 @@ export function initMap() {
   if (import.meta.env.DEV) {
     Object.assign(window, {
       __pixelmap: {
-        stationS,
+        get stationS() {
+          return stationS;
+        },
         scrollYFor,
         get state() {
           return { heroS, targetS, scale, camX, active, walking, row, hx, hy };

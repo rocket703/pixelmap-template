@@ -16,6 +16,9 @@ ersetzen sie 1:1. Danach `npm run assets` nicht mehr ausführen, sonst werden si
 | `objects.png` | 480 × 1520 px | Alles, **hinter** dem die Figur läuft: Baumstämme, Steine, Kristalle, Laternenpfähle, Schatten | ja |
 | `canopy.png` | 480 × 1520 px | Alles, was die Figur **verdeckt**: Baumkronen, Laternenköpfe | ja |
 
+Die Handy-Map hat dieselben drei Ebenen in `map/mobile/` (260 px breit, Höhe aus der Zahl der
+Stationen, derzeit 260 × 1424 px). Sie wird ebenfalls von `npm run assets` erzeugt.
+
 - Raster: **16 × 16 px Kacheln** (30 Kacheln breit). Die Breite ist fest (`MAP.width` in
   `src/data/map.ts`), die **Höhe wächst mit dem Weg**: Tür am Ende + 48 px, auf 16 gerundet.
   Kommt eine Station dazu, wird die Map höher – die aktuelle Höhe gibt `npm run assets` aus.
